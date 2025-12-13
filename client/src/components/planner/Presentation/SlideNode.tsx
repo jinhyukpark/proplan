@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Trash2, Move, X, FileText, MoreVertical, Edit, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { NodeProps } from 'reactflow';
+import { NodeProps, useViewport } from 'reactflow';
 import {
   Popover,
   PopoverContent,
@@ -18,7 +18,6 @@ export interface SlideNodeData {
   noteToolActive: boolean;
   memoToolActive: boolean;
   selectedMarkerId: string | null;
-  zoom: number;
   onAddMarker: (x: number, y: number) => void;
   onUpdateMarkerPosition: (markerId: string, x: number, y: number) => void;
   onDeleteMarker: (markerId: string) => void;
@@ -52,7 +51,8 @@ export interface SlideNodeData {
 }
 
 export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
-  const { slide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, zoom, onAddMarker, onUpdateMarkerPosition, onDeleteMarker, onSelectMarker, onUpdateImagePosition, onUpdateImageSize, onDeleteImage, onDeleteLink, onUpdateLinkPosition, onUpdateLinkSize, onEditLink, onDeleteReference, onUpdateReferencePosition, onUpdateReferenceSize, onEditReference, onNavigateToSlide, onDeleteMemo, onUpdateMemoPosition, onUpdateMemoSize, onEditMemo, onDeleteShape, isDrawingLine, isDrawingShape, lineStart, shapeStart, currentLineEnd, currentShapeEnd, lineColor, shapeColor } = data;
+  const { slide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, onAddMarker, onUpdateMarkerPosition, onDeleteMarker, onSelectMarker, onUpdateImagePosition, onUpdateImageSize, onDeleteImage, onDeleteLink, onUpdateLinkPosition, onUpdateLinkSize, onEditLink, onDeleteReference, onUpdateReferencePosition, onUpdateReferenceSize, onEditReference, onNavigateToSlide, onDeleteMemo, onUpdateMemoPosition, onUpdateMemoSize, onEditMemo, onDeleteShape, isDrawingLine, isDrawingShape, lineStart, shapeStart, currentLineEnd, currentShapeEnd, lineColor, shapeColor } = data;
+  const { zoom } = useViewport(); // zoom을 직접 가져옴
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
   const [shapePopoverOpen, setShapePopoverOpen] = useState(false);
