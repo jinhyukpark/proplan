@@ -257,42 +257,6 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
         className="absolute inset-0 pointer-events-none" 
         style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 5 }}
       >
-        {/* 드래그 중인 라인 미리보기 */}
-        {isDrawingLine && lineStart && currentLineEnd && (
-          <g>
-            <line
-              x1={lineStart.x}
-              y1={lineStart.y}
-              x2={currentLineEnd.x}
-              y2={currentLineEnd.y}
-              stroke={lineColor}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeDasharray="5,5"
-              opacity={0.7}
-            />
-            <circle cx={lineStart.x} cy={lineStart.y} r={4} fill={lineColor} opacity={0.7} />
-            <circle cx={currentLineEnd.x} cy={currentLineEnd.y} r={4} fill={lineColor} opacity={0.7} />
-          </g>
-        )}
-        
-        {/* 드래그 중인 네모 미리보기 */}
-        {isDrawingShape && shapeStart && currentShapeEnd && (
-          <g>
-            <rect
-              x={Math.min(shapeStart.x, currentShapeEnd.x)}
-              y={Math.min(shapeStart.y, currentShapeEnd.y)}
-              width={Math.abs(currentShapeEnd.x - shapeStart.x)}
-              height={Math.abs(currentShapeEnd.y - shapeStart.y)}
-              stroke={shapeColor}
-              strokeWidth={2}
-              fill="none"
-              strokeDasharray="5,5"
-              opacity={0.7}
-            />
-          </g>
-        )}
-        
         {(slide.shapes || []).map((shape) => {
           if (shape.type === 'line') {
             // 라인 렌더링
