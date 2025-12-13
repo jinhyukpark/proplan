@@ -5,8 +5,9 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   useReactFlow,
+  Position,
 } from 'reactflow';
-import { edgeHandleStyle } from '../types';
+import { edgeHandleStyle, findNearestNode } from '../types';
 import { EdgeLabelBox } from './EdgeLabelBox';
 
 /**
@@ -20,6 +21,8 @@ export const BezierEdge = ({
   sourceY,
   targetX,
   targetY,
+  source,
+  target,
   sourcePosition,
   targetPosition,
   style = {},
@@ -27,19 +30,23 @@ export const BezierEdge = ({
   selected,
   data,
 }: EdgeProps) => {
-  const { setNodes, setEdges, getZoom } = useReactFlow();
+  const { setNodes, setEdges, getNodes, getZoom } = useReactFlow();
   const curvature = (data?.curvature as number) ?? 0.25;
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 가상 노드의 경우 position이 undefined일 수 있으므로 기본값 설정
+  const effectiveSourcePosition = sourcePosition || Position.Right;
+  const effectiveTargetPosition = targetPosition || Position.Left;
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
-    sourcePosition,
+    sourcePosition: effectiveSourcePosition,
     targetX,
     targetY,
-    targetPosition,
+    targetPosition: effectiveTargetPosition,
     curvature,
   });
 
@@ -59,23 +66,29 @@ export const BezierEdge = ({
     const initialY = endpoint === 'source' ? sourceY : targetY;
 
     // data에서 노드 ID 참조
-    const nodeId = endpoint === 'source'
+    const virtualNodeId = endpoint === 'source'
       ? (data?.sourceNodeId as string)
       : (data?.targetNodeId as string);
+
+    // 반대쪽 노드 ID (스냅 제외용)
+    const otherNodeId = endpoint === 'source' ? target : source;
+
+    let currentX = initialX;
+    let currentY = initialY;
 
     const onMouseMove = (e: MouseEvent) => {
       const deltaX = (e.clientX - startX) / zoom;
       const deltaY = (e.clientY - startY) / zoom;
-      const newX = initialX + deltaX;
-      const newY = initialY + deltaY;
+      currentX = initialX + deltaX;
+      currentY = initialY + deltaY;
 
       // 가상 노드 위치 업데이트
       setNodes((nodes) =>
         nodes.map((node) => {
-          if (node.id === nodeId) {
+          if (node.id === virtualNodeId) {
             return {
               ...node,
-              position: { x: newX, y: newY },
+              position: { x: currentX, y: currentY },
             };
           }
           return node;
@@ -87,6 +100,48 @@ export const BezierEdge = ({
       setIsDragging(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+
+      // 근처 노드 Handle에 스냅
+      const nodes = getNodes();
+      const nearestResult = findNearestNode(currentX, currentY, nodes, [virtualNodeId, otherNodeId]);
+
+      if (nearestResult) {
+        // 스냅: Edge를 실제 노드에 연결하고 가상 노드 삭제
+        const targetNodeId = nearestResult.node.id;
+        const handlePosition = nearestResult.handle.position;
+
+        setEdges((edges) =>
+          edges.map((edge) => {
+            if (edge.id === id) {
+              if (endpoint === 'source') {
+                return {
+                  ...edge,
+                  source: targetNodeId,
+                  sourceHandle: handlePosition,
+                  data: {
+                    ...edge.data,
+                    sourceNodeId: undefined,
+                  },
+                };
+              } else {
+                return {
+                  ...edge,
+                  target: targetNodeId,
+                  targetHandle: handlePosition,
+                  data: {
+                    ...edge.data,
+                    targetNodeId: undefined,
+                  },
+                };
+              }
+            }
+            return edge;
+          })
+        );
+
+        // 가상 노드 삭제
+        setNodes((nodes) => nodes.filter((node) => node.id !== virtualNodeId));
+      }
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -167,17 +222,18 @@ export const BezierEdge = ({
 
   return (
     <>
-      <g
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+      <g>
+        {/* 투명한 넓은 히트 영역 */}
         <path
           d={edgePath}
           fill="none"
           strokeWidth={20}
-          stroke="transparent"
+          stroke="rgba(0,0,0,0.001)"
           style={{ cursor: 'pointer' }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         />
+        {/* 실제 보이는 선 */}
         <BaseEdge
           path={edgePath}
           markerEnd={markerEnd}

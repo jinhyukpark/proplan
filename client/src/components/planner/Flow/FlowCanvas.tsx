@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactFlow, {
   addEdge,
   updateEdge,
@@ -60,7 +60,8 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes || []);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges || []);
   const [activeTool, setActiveTool] = useState<ActiveTool>('select');
-  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+  const { screenToFlowPosition, getIntersectingNodes, fitView } = useReactFlow();
+  const hasInitializedView = useRef(false);
 
   // 현재 활성 도구에서 edge 스타일 추출
   const edgeStyle: EdgeStyleType = activeTool === 'select' ? 'step' : activeTool;
@@ -477,10 +478,18 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
         style = { width: 300, height: 200, zIndex: -1 };
       }
 
+      // 컴포넌트 중심이 마우스 위치에 오도록 위치 조정
+      const nodeWidth = (style.width as number) || 150;
+      const nodeHeight = (style.height as number) || 80;
+      const adjustedPosition = {
+        x: position.x - nodeWidth / 2,
+        y: position.y - nodeHeight / 2,
+      };
+
       const newNode: Node = {
         id: `dndnode_${Date.now()}`,
         type: nodeType,
-        position,
+        position: adjustedPosition,
         data: newNodeData,
         style
       };
@@ -580,7 +589,7 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
   const addableItems = useMemo(() => getAddableItems(availableItems), [availableItems]);
 
   return (
-    <div className="w-full h-full bg-slate-50 dark:bg-zinc-950 relative" onDrop={onDrop} onDragOver={onDragOver}>
+    <div className="w-full h-full bg-slate-50 dark:bg-zinc-950 relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -590,9 +599,16 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
         onEdgeUpdate={onEdgeUpdate}
         onNodeDragStop={onNodeDragStop}
         onSelectionChange={onSelectionChangeHandler}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        fitView
+        onInit={() => {
+          if (!hasInitializedView.current && initialNodes && initialNodes.length > 0) {
+            fitView({ maxZoom: 1, padding: 0.2 });
+            hasInitializedView.current = true;
+          }
+        }}
         attributionPosition="bottom-right"
         deleteKeyCode={['Backspace', 'Delete']}
         connectionMode={ConnectionMode.Loose}

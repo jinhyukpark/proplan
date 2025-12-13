@@ -7,7 +7,7 @@ import {
   useReactFlow,
   Position,
 } from 'reactflow';
-import { edgeHandleStyle } from '../types';
+import { edgeHandleStyle, findNearestNode } from '../types';
 import { EdgeLabelBox } from './EdgeLabelBox';
 
 /**
@@ -21,6 +21,8 @@ export const StepEdge = ({
   sourceY,
   targetX,
   targetY,
+  source,
+  target,
   sourcePosition,
   targetPosition,
   style = {},
@@ -28,7 +30,7 @@ export const StepEdge = ({
   selected,
   data,
 }: EdgeProps) => {
-  const { setNodes, setEdges, getZoom } = useReactFlow();
+  const { setNodes, setEdges, getNodes, getZoom } = useReactFlow();
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -36,13 +38,17 @@ export const StepEdge = ({
   const predefinedCenterX = data?.centerX as number | undefined;
   const predefinedCenterY = data?.centerY as number | undefined;
 
+  // 가상 노드의 경우 position이 undefined일 수 있으므로 기본값 설정
+  const effectiveSourcePosition = sourcePosition || Position.Right;
+  const effectiveTargetPosition = targetPosition || Position.Left;
+
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
-    sourcePosition,
+    sourcePosition: effectiveSourcePosition,
     targetX,
     targetY,
-    targetPosition,
+    targetPosition: effectiveTargetPosition,
     borderRadius: 8,
     centerX: predefinedCenterX,
     centerY: predefinedCenterY,
@@ -64,23 +70,29 @@ export const StepEdge = ({
     const initialY = endpoint === 'source' ? sourceY : targetY;
 
     // data에서 노드 ID 참조
-    const nodeId = endpoint === 'source'
+    const virtualNodeId = endpoint === 'source'
       ? (data?.sourceNodeId as string)
       : (data?.targetNodeId as string);
+
+    // 반대쪽 노드 ID (스냅 제외용)
+    const otherNodeId = endpoint === 'source' ? target : source;
+
+    let currentX = initialX;
+    let currentY = initialY;
 
     const onMouseMove = (e: MouseEvent) => {
       const deltaX = (e.clientX - startX) / zoom;
       const deltaY = (e.clientY - startY) / zoom;
-      const newX = initialX + deltaX;
-      const newY = initialY + deltaY;
+      currentX = initialX + deltaX;
+      currentY = initialY + deltaY;
 
       // 가상 노드 위치 업데이트
       setNodes((nodes) =>
         nodes.map((node) => {
-          if (node.id === nodeId) {
+          if (node.id === virtualNodeId) {
             return {
               ...node,
-              position: { x: newX, y: newY },
+              position: { x: currentX, y: currentY },
             };
           }
           return node;
@@ -92,6 +104,48 @@ export const StepEdge = ({
       setIsDragging(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+
+      // 근처 노드 Handle에 스냅
+      const nodes = getNodes();
+      const nearestResult = findNearestNode(currentX, currentY, nodes, [virtualNodeId, otherNodeId]);
+
+      if (nearestResult) {
+        // 스냅: Edge를 실제 노드에 연결하고 가상 노드 삭제
+        const targetNodeId = nearestResult.node.id;
+        const handlePosition = nearestResult.handle.position;
+
+        setEdges((edges) =>
+          edges.map((edge) => {
+            if (edge.id === id) {
+              if (endpoint === 'source') {
+                return {
+                  ...edge,
+                  source: targetNodeId,
+                  sourceHandle: handlePosition,
+                  data: {
+                    ...edge.data,
+                    sourceNodeId: undefined,
+                  },
+                };
+              } else {
+                return {
+                  ...edge,
+                  target: targetNodeId,
+                  targetHandle: handlePosition,
+                  data: {
+                    ...edge.data,
+                    targetNodeId: undefined,
+                  },
+                };
+              }
+            }
+            return edge;
+          })
+        );
+
+        // 가상 노드 삭제
+        setNodes((nodes) => nodes.filter((node) => node.id !== virtualNodeId));
+      }
     };
 
     document.addEventListener('mousemove', onMouseMove);
@@ -158,9 +212,17 @@ export const StepEdge = ({
     }, 100);
   };
 
-  const isSourceVertical = sourcePosition === Position.Top || sourcePosition === Position.Bottom;
-  const dragType = isSourceVertical ? 'horizontal' : 'vertical';
-  const cursorStyle = isSourceVertical ? 'ns-resize' : 'ew-resize';
+  // 꺾인 선의 방향 판단
+  // - 가로 방향으로 연결 (deltaX >= deltaY): 중간에 세로 꺾임 → 가로로 이동 (centerX)
+  // - 세로 방향으로 연결 (deltaY > deltaX): 중간에 가로 꺾임 → 세로로 이동 (centerY)
+  const deltaX = Math.abs(targetX - sourceX);
+  const deltaY = Math.abs(targetY - sourceY);
+  const isMainlyHorizontal = deltaX >= deltaY;
+
+  // 꺾인 선이 세로 → 가로로 이동 (ew-resize, centerX)
+  // 꺾인 선이 가로 → 세로로 이동 (ns-resize, centerY)
+  const dragType = isMainlyHorizontal ? 'vertical' : 'horizontal';
+  const cursorStyle = isMainlyHorizontal ? 'ew-resize' : 'ns-resize';
 
   const showControls = selected || isHovered || isDragging;
 
@@ -183,17 +245,18 @@ export const StepEdge = ({
 
   return (
     <>
-      <g
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+      <g>
+        {/* 투명한 넓은 히트 영역 */}
         <path
           d={edgePath}
           fill="none"
           strokeWidth={20}
-          stroke="transparent"
+          stroke="rgba(0,0,0,0.001)"
           style={{ cursor: 'pointer' }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         />
+        {/* 실제 보이는 선 */}
         <BaseEdge
           path={edgePath}
           markerEnd={markerEnd}

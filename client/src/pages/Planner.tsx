@@ -617,6 +617,13 @@ export default function Planner() {
 
   const handleFlowNodesUpdate = useCallback((nodes: Node[]) => {
     setAllFlowNodes(nodes);
+    // selectedFlowNodes도 업데이트하여 Properties 패널과 캔버스 동기화
+    setSelectedFlowNodes(prev =>
+      prev.map(selectedNode => {
+        const updatedNode = nodes.find(n => n.id === selectedNode.id);
+        return updatedNode || selectedNode;
+      }).filter(selectedNode => nodes.some(node => node.id === selectedNode.id))
+    );
   }, []);
 
   const handlePresentationSlidesChange = useCallback((presentationId: string, slides: Slide[]) => {
