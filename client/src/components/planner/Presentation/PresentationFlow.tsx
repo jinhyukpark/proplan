@@ -150,6 +150,7 @@ export function PresentationFlow(props: PresentationFlowProps) {
         noteToolActive,
         memoToolActive,
         selectedMarkerId,
+        zoom,
         onAddMarker,
         onUpdateMarkerPosition,
         onDeleteMarker,
@@ -172,13 +173,12 @@ export function PresentationFlow(props: PresentationFlowProps) {
         onEditMemo,
         onDeleteShape: handleDeleteShape,
         onUpdateShapeColor: handleUpdateShapeColor,
-        // 미리보기는 제거 - 외부 오버레이로 이동
-        isDrawingLine: false,
-        isDrawingShape: false,
-        lineStart: null,
-        shapeStart: null,
-        currentLineEnd: null,
-        currentShapeEnd: null,
+        isDrawingLine,
+        isDrawingShape,
+        lineStart,
+        shapeStart,
+        currentLineEnd,
+        currentShapeEnd,
         lineColor,
         shapeColor,
       } as SlideNodeData,
@@ -193,6 +193,13 @@ export function PresentationFlow(props: PresentationFlowProps) {
     noteToolActive,
     memoToolActive,
     selectedMarkerId,
+    zoom,
+    isDrawingLine,
+    isDrawingShape,
+    lineStart,
+    shapeStart,
+    currentLineEnd,
+    currentShapeEnd,
     lineColor,
     shapeColor,
     onEditLink,
@@ -441,7 +448,7 @@ export function PresentationFlow(props: PresentationFlowProps) {
   return (
     <div 
       className={cn((markerToolActive || imageToolActive) && "marker-mode-active")} 
-      style={{ width: '100%', height: '100%', position: 'relative' }}
+      style={{ width: '100%', height: '100%' }}
       onMouseDown={handleNodeMouseDown}
       onMouseUp={handleNodeMouseUp}
     >
@@ -474,70 +481,6 @@ export function PresentationFlow(props: PresentationFlowProps) {
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable style={{ width: 120, height: 80 }} />
       </ReactFlow>
-      
-      {/* 드래그 중인 라인/네모 미리보기 오버레이 */}
-      {(isDrawingLine || isDrawingShape) && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: CANVAS_WIDTH,
-            height: CANVAS_HEIGHT,
-            pointerEvents: 'none',
-            zIndex: 1000,
-            transform: `translate(${zoom * CANVAS_WIDTH * 0.05}px, ${zoom * CANVAS_HEIGHT * 0.05}px) scale(${zoom})`,
-            transformOrigin: '0 0',
-          }}
-        >
-          <svg
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: CANVAS_WIDTH,
-              height: CANVAS_HEIGHT,
-              overflow: 'visible',
-            }}
-          >
-            {/* 드래그 중인 라인 미리보기 */}
-            {isDrawingLine && lineStart && currentLineEnd && (
-              <g>
-                <line
-                  x1={lineStart.x}
-                  y1={lineStart.y}
-                  x2={currentLineEnd.x}
-                  y2={currentLineEnd.y}
-                  stroke={lineColor}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeDasharray="5,5"
-                  opacity={0.7}
-                />
-                <circle cx={lineStart.x} cy={lineStart.y} r={4} fill={lineColor} opacity={0.7} />
-                <circle cx={currentLineEnd.x} cy={currentLineEnd.y} r={4} fill={lineColor} opacity={0.7} />
-              </g>
-            )}
-            
-            {/* 드래그 중인 네모 미리보기 */}
-            {isDrawingShape && shapeStart && currentShapeEnd && (
-              <g>
-                <rect
-                  x={Math.min(shapeStart.x, currentShapeEnd.x)}
-                  y={Math.min(shapeStart.y, currentShapeEnd.y)}
-                  width={Math.abs(currentShapeEnd.x - shapeStart.x)}
-                  height={Math.abs(currentShapeEnd.y - shapeStart.y)}
-                  stroke={shapeColor}
-                  strokeWidth={2}
-                  fill="none"
-                  strokeDasharray="5,5"
-                  opacity={0.7}
-                />
-              </g>
-            )}
-          </svg>
-        </div>
-      )}
     </div>
   );
 }
