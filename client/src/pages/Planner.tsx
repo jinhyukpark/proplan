@@ -164,15 +164,8 @@ export default function Planner() {
   // Flow State
   const [flowsData, setFlowsData] = useState<Record<string, { nodes: Node[], edges: Edge[] }>>({
     "flow-1": {
-      nodes: [
-        { id: '1', type: 'imageNode', position: { x: 50, y: 50 }, data: { label: 'Home Page', image: "https://illunex.com" }, style: { width: 240, height: 180 } },
-        { id: '2', type: 'imageNode', position: { x: 400, y: 150 }, data: { label: 'Login Screen', image: minimalistMobileLogin }, style: { width: 200, height: 350 } },
-        { id: '3', type: 'imageNode', position: { x: 50, y: 350 }, data: { label: 'Dashboard', image: modernDarkModeDashboard }, style: { width: 300, height: 200 } },
-      ],
-      edges: [
-         { id: 'e1-2', source: '1', target: '2', animated: true, style: { stroke: '#64748b' } },
-         { id: 'e2-3', source: '2', target: '3', animated: true, style: { stroke: '#64748b' } },
-      ]
+      nodes: [],
+      edges: []
     }
   });
 

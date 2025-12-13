@@ -20,7 +20,7 @@ import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
 import { SiteItem } from '../SiteMapPanel';
 import { Button } from '@/components/ui/button';
-import { Plus, Circle, Square, Diamond, FileText, Spline, Minus, CornerDownRight, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, MoreHorizontal, BoxSelect, Layout } from 'lucide-react';
+import { Plus, Circle, Square, Diamond, FileText, Spline, Minus, CornerDownRight, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, BoxSelect, Layout } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 
 // Import types and constants
-import { EdgeStyleType, LineStyleType } from './types';
+import { EdgeStyleType } from './types';
 
 // Import edge components
 import { edgeTypes } from './edges';
@@ -53,12 +53,17 @@ interface FlowCanvasProps {
   onNodesUpdate?: (nodes: Node[]) => void;
 }
 
+// 활성 도구 타입
+type ActiveTool = 'select' | 'bezier' | 'straight' | 'step';
+
 function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, onSave, onSelectionChange, onNodesUpdate }: FlowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes || []);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges || []);
-  const [edgeStyle, setEdgeStyle] = useState<EdgeStyleType>('step');
-  const [lineStyle, setLineStyle] = useState<LineStyleType>('solid');
+  const [activeTool, setActiveTool] = useState<ActiveTool>('select');
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+
+  // 현재 활성 도구에서 edge 스타일 추출
+  const edgeStyle: EdgeStyleType = activeTool === 'select' ? 'step' : activeTool;
 
   // Track selection changes
   const onSelectionChangeHandler = useCallback((params: { nodes: Node[], edges: Edge[] }) => {
@@ -249,17 +254,20 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
   }, [connectedHandles, setNodes]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ 
-      ...params, 
-      type: edgeStyle, 
-      animated: false, 
-      style: { 
-        stroke: '#64748b', 
+    (params: Connection) => setEdges((eds) => addEdge({
+      ...params,
+      type: edgeStyle,
+      animated: false,
+      style: {
+        stroke: '#64748b',
         strokeWidth: 2,
-        strokeDasharray: lineStyle === 'dashed' ? '8 4' : 'none',
-      } 
+      },
+      data: {
+        edgeStyle: edgeStyle,
+        strokeWidth: 2,
+      },
     }, eds)),
-    [setEdges, edgeStyle, lineStyle],
+    [setEdges, edgeStyle],
   );
 
   const onEdgeUpdate = useCallback(
@@ -364,10 +372,13 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
     setNodes((nds) => [...nds, newNode]);
   };
 
-  const onDragStart = (event: React.DragEvent, nodeType: string, shapeType?: string) => {
+  const onDragStart = (event: React.DragEvent, nodeType: string, shapeType?: string, edgeType?: EdgeStyleType) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     if (shapeType) {
       event.dataTransfer.setData('application/shapeType', shapeType);
+    }
+    if (edgeType) {
+      event.dataTransfer.setData('application/edgeType', edgeType);
     }
     event.dataTransfer.effectAllowed = 'move';
   };
@@ -383,6 +394,7 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
 
       const type = event.dataTransfer.getData('application/reactflow');
       const shapeType = event.dataTransfer.getData('application/shapeType');
+      const edgeType = event.dataTransfer.getData('application/edgeType') as EdgeStyleType;
 
       if (typeof type === 'undefined' || !type) {
         return;
@@ -392,12 +404,63 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
         x: event.clientX,
         y: event.clientY,
       });
-      
+
+      // 라인(Edge) 드래그 생성
+      if (type === 'edge' && edgeType) {
+        const lineLength = 150;
+        const timestamp = Date.now();
+        const sourceNodeId = `virtual_start_${timestamp}`;
+        const targetNodeId = `virtual_end_${timestamp}`;
+
+        const newEdge: Edge = {
+          id: `edge_${timestamp}`,
+          source: sourceNodeId,
+          target: targetNodeId,
+          type: edgeType,
+          style: {
+            stroke: '#64748b',
+            strokeWidth: 2,
+          },
+          data: {
+            edgeStyle: edgeType,
+            strokeWidth: 2,
+            sourceNodeId,
+            targetNodeId,
+          },
+        };
+
+        // 가상 시작/끝 노드 생성 (보이지 않는 노드)
+        const startNode: Node = {
+          id: sourceNodeId,
+          type: 'default',
+          position: { x: position.x, y: position.y },
+          data: { label: '' },
+          style: { width: 1, height: 1, opacity: 0, pointerEvents: 'none' },
+          selectable: false,
+          draggable: false,
+        };
+
+        const endNode: Node = {
+          id: targetNodeId,
+          type: 'default',
+          position: { x: position.x + lineLength, y: position.y },
+          data: { label: '' },
+          style: { width: 1, height: 1, opacity: 0, pointerEvents: 'none' },
+          selectable: false,
+          draggable: false,
+        };
+
+        setNodes((nds) => [...nds, startNode, endNode]);
+        setEdges((eds) => [...eds, newEdge]);
+        setActiveTool('select');
+        return;
+      }
+
       let newNodeData: any = { label: 'New Node' };
       let style: React.CSSProperties = { width: 150, height: 80 };
 
       let nodeType = type;
-      
+
       if (type === 'shapeNode') {
         newNodeData = { label: shapeType ? shapeType.charAt(0).toUpperCase() + shapeType.slice(1) : 'Shape', shapeType };
         if (shapeType === 'start' || shapeType === 'end') style = { width: 80, height: 80 };
@@ -408,7 +471,7 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
         if (shapeType === 'note') style = { width: 180, height: 120 };
         if (shapeType === 'process') style = { width: 150, height: 80 };
       }
-      
+
       if (type === 'groupNode') {
         newNodeData = { label: 'Group' };
         style = { width: 300, height: 200, zIndex: -1 };
@@ -424,7 +487,7 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [screenToFlowPosition, setNodes],
+    [screenToFlowPosition, setNodes, setEdges, setActiveTool],
   );
 
   const autoLayoutHorizontal = useCallback(() => {
@@ -539,10 +602,9 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
         multiSelectionKeyCode="Meta"
         selectionKeyCode="Meta"
         connectionLineType={getConnectionLineStyle() as any}
-        connectionLineStyle={{ 
-          stroke: '#64748b', 
+        connectionLineStyle={{
+          stroke: '#64748b',
           strokeWidth: 2,
-          strokeDasharray: lineStyle === 'dashed' ? '8 4' : 'none',
         }}
         defaultEdgeOptions={{ animated: false }}
       >
@@ -633,76 +695,44 @@ function FlowCanvasInner({ flowId, availableItems, initialNodes, initialEdges, o
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant={edgeStyle === 'bezier' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setEdgeStyle('bezier')}
+                  <div
+                    className={`p-1 rounded cursor-grab active:cursor-grabbing ${activeTool === 'bezier' ? 'bg-muted' : 'hover:bg-muted'}`}
+                    onClick={() => setActiveTool('bezier')}
+                    onDragStart={(e) => onDragStart(e, 'edge', undefined, 'bezier')}
+                    draggable
                   >
-                    <Spline className="w-4 h-4" />
-                  </Button>
+                    <Spline className="w-5 h-5" />
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>Curved Line</TooltipContent>
+                <TooltipContent>Curved Line (드래그하여 생성)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant={edgeStyle === 'straight' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setEdgeStyle('straight')}
+                  <div
+                    className={`p-1 rounded cursor-grab active:cursor-grabbing ${activeTool === 'straight' ? 'bg-muted' : 'hover:bg-muted'}`}
+                    onClick={() => setActiveTool('straight')}
+                    onDragStart={(e) => onDragStart(e, 'edge', undefined, 'straight')}
+                    draggable
                   >
-                    <Minus className="w-4 h-4" />
-                  </Button>
+                    <Minus className="w-5 h-5" />
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>Straight Line</TooltipContent>
+                <TooltipContent>Straight Line (드래그하여 생성)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant={edgeStyle === 'step' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setEdgeStyle('step')}
+                  <div
+                    className={`p-1 rounded cursor-grab active:cursor-grabbing ${activeTool === 'step' ? 'bg-muted' : 'hover:bg-muted'}`}
+                    onClick={() => setActiveTool('step')}
+                    onDragStart={(e) => onDragStart(e, 'edge', undefined, 'step')}
+                    draggable
                   >
-                    <CornerDownRight className="w-4 h-4" />
-                  </Button>
+                    <CornerDownRight className="w-5 h-5" />
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent>Step Line</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <div className="w-px h-4 bg-border mx-1" />
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant={lineStyle === 'solid' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setLineStyle('solid')}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Solid Line</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant={lineStyle === 'dashed' ? 'secondary' : 'ghost'} 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => setLineStyle('dashed')}
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Dashed Line</TooltipContent>
+                <TooltipContent>Step Line (드래그하여 생성)</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
