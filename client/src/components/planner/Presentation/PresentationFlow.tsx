@@ -375,7 +375,9 @@ export function PresentationFlow(props: PresentationFlowProps) {
     if (!lineToolActive && !shapeToolActive) return;
     // 다른 컴포넌트를 클릭한 경우 무시
     const target = event.target as HTMLElement;
-    if (target.closest('.image-container, .link-container, .reference-container, .memo-container, .marker-container')) return;
+    if (target.closest('.image-container, .link-container, .reference-container, .memo-container, .marker-container, [data-shape-id]')) return;
+    // SVG shape 요소 클릭 무시
+    if (target.tagName === 'line' || target.tagName === 'rect' || target.tagName === 'circle') return;
     
     const coords = getCanvasCoordinates(event.clientX, event.clientY);
     if (!coords) return;

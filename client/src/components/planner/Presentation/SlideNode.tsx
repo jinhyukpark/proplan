@@ -60,8 +60,16 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
   const handleSlideClick = (e: React.MouseEvent) => {
     if (!markerToolActive && !imageToolActive && !linkToolActive && !noteToolActive && !memoToolActive) {
       const target = e.target as HTMLElement;
+      // shape(라인, 네모) 클릭 시 무시 - SVG 내부 요소 클릭 체크
+      if (target.closest('[data-shape-id]') || target.tagName === 'line' || target.tagName === 'rect' || target.tagName === 'circle') {
+        return;
+      }
       if (target.closest('.image-container') || target.closest('.marker-container')) {
         onSelectMarker(null);
+        return;
+      }
+      // 링크, 참조, 메모 컨테이너 클릭 시 무시
+      if (target.closest('.link-container') || target.closest('.reference-container') || target.closest('.memo-container')) {
         return;
       }
       onSelectMarker(null);
@@ -254,7 +262,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
       }}
     >
       <svg
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 nodrag nopan"
         style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, zIndex: 5 }}
       >
         {/* 저장된 shapes 렌더링 */}
@@ -475,7 +483,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
             };
 
             return (
-              <g key={shape.id} data-shape-id={shape.id} className="pointer-events-auto group">
+              <g key={shape.id} data-shape-id={shape.id} className="group nodrag nopan" style={{ pointerEvents: 'auto' }}>
                 {/* 클릭 영역 확장을 위한 투명 라인 */}
                 <line
                   x1={startX}
@@ -484,7 +492,8 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                   y2={endY}
                   stroke="transparent"
                   strokeWidth={20}
-                  className={cn("cursor-grab", activeId === shape.id && "cursor-grabbing")}
+                  className="nodrag nopan"
+                  style={{ cursor: activeId === shape.id ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
                   onMouseDown={handleLineDragStart}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -506,7 +515,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     shape.lineType === 'dotted' ? '2,4' :
                     'none'
                   }
-                  className="pointer-events-none"
+                  style={{ pointerEvents: 'none' }}
                 />
                 {/* 시작점 핸들 */}
                 <circle
@@ -515,7 +524,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                   cy={startY}
                   r={isSelected ? 8 : 4}
                   fill={shape.color}
-                  className={isSelected ? "cursor-crosshair" : "cursor-grab"}
+                  style={{ cursor: isSelected ? 'crosshair' : 'grab', pointerEvents: 'auto' }}
                   onMouseDown={(e) => isSelected ? handleLineEndpointDrag(e, true) : handleLineDragStart(e)}
                 />
                 {/* 끝점 핸들 */}
@@ -525,7 +534,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                   cy={endY}
                   r={isSelected ? 8 : 4}
                   fill={shape.color}
-                  className={isSelected ? "cursor-crosshair" : "cursor-grab"}
+                  style={{ cursor: isSelected ? 'crosshair' : 'grab', pointerEvents: 'auto' }}
                   onMouseDown={(e) => isSelected ? handleLineEndpointDrag(e, false) : handleLineDragStart(e)}
                 />
                 {/* 선택 시 외곽선 */}
@@ -539,7 +548,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     strokeWidth={shape.strokeWidth + 4}
                     strokeLinecap="round"
                     opacity={0.3}
-                    className="pointer-events-none"
+                    style={{ pointerEvents: 'none' }}
                   />
                 )}
                 {/* 삭제 버튼 */}
@@ -780,7 +789,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           };
 
           return (
-            <g key={shape.id} data-shape-id={shape.id} className="pointer-events-auto group">
+            <g key={shape.id} data-shape-id={shape.id} className="group nodrag nopan" style={{ pointerEvents: 'auto' }}>
               <rect
                 x={shape.x}
                 y={shape.y}
@@ -790,7 +799,8 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                 strokeWidth={isSelected ? shape.strokeWidth + 2 : shape.strokeWidth}
                 fill={shape.fillColor || 'none'}
                 fillOpacity={shape.fillOpacity || 0}
-                className={cn("cursor-grab", activeId === shape.id && "cursor-grabbing")}
+                className="nodrag nopan"
+                style={{ cursor: activeId === shape.id ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
                 onMouseDown={handleRectDragStart}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -810,7 +820,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     fill="#3b82f6"
                     stroke="white"
                     strokeWidth={2}
-                    className="cursor-nwse-resize"
+                    style={{ cursor: 'nwse-resize', pointerEvents: 'auto' }}
                     onMouseDown={(e) => handleRectResizeStart(e, 'tl')}
                   />
                   {/* 우상단 */}
@@ -822,7 +832,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     fill="#3b82f6"
                     stroke="white"
                     strokeWidth={2}
-                    className="cursor-nesw-resize"
+                    style={{ cursor: 'nesw-resize', pointerEvents: 'auto' }}
                     onMouseDown={(e) => handleRectResizeStart(e, 'tr')}
                   />
                   {/* 좌하단 */}
@@ -834,7 +844,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     fill="#3b82f6"
                     stroke="white"
                     strokeWidth={2}
-                    className="cursor-nesw-resize"
+                    style={{ cursor: 'nesw-resize', pointerEvents: 'auto' }}
                     onMouseDown={(e) => handleRectResizeStart(e, 'bl')}
                   />
                   {/* 우하단 */}
@@ -846,7 +856,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                     fill="#3b82f6"
                     stroke="white"
                     strokeWidth={2}
-                    className="cursor-nwse-resize"
+                    style={{ cursor: 'nwse-resize', pointerEvents: 'auto' }}
                     onMouseDown={(e) => handleRectResizeStart(e, 'br')}
                   />
                 </>
@@ -1038,8 +1048,8 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           <div
             key={link.id}
             className={cn(
-              "absolute group nodrag nopan",
-              activeId === link.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" : 
+              "absolute group nodrag nopan link-container",
+              activeId === link.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" :
               selectedComponentId === link.id ? "ring-2 ring-blue-400" :
               "hover:ring-2 hover:ring-blue-300 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive) && "pointer-events-none"
@@ -1234,8 +1244,8 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           <div
             key={reference.id}
             className={cn(
-              "absolute group nodrag nopan",
-              activeId === reference.id ? "z-40 ring-2 ring-green-500 cursor-grabbing" : 
+              "absolute group nodrag nopan reference-container",
+              activeId === reference.id ? "z-40 ring-2 ring-green-500 cursor-grabbing" :
               selectedComponentId === reference.id ? "ring-2 ring-green-400" :
               "hover:ring-2 hover:ring-green-300 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive) && "pointer-events-none"
@@ -1439,8 +1449,8 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           <div
             key={memo.id}
             className={cn(
-              "absolute group nodrag nopan",
-              activeId === memo.id ? "z-40 ring-2 cursor-grabbing" : 
+              "absolute group nodrag nopan memo-container",
+              activeId === memo.id ? "z-40 ring-2 cursor-grabbing" :
               selectedComponentId === memo.id ? "ring-2" :
               "hover:ring-2 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive || memoToolActive) && "pointer-events-none"
