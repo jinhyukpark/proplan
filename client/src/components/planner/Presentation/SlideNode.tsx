@@ -66,6 +66,9 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
         return;
       }
       onSelectMarker(null);
+      // 빈 영역 클릭 시 컴포넌트 선택도 해제
+      setSelectedShapeId(null);
+      onComponentSelect?.(null as any, '');
       return;
     }
     

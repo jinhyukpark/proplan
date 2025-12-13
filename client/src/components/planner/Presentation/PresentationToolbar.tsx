@@ -1,5 +1,5 @@
 import React from "react";
-import { MousePointer2, Hash, Image as ImageIcon, Link, FileText, StickyNote, Minus, Square } from "lucide-react";
+import { MousePointer2, Hash, Image as ImageIcon, Link, FileText, StickyNote, Minus, Square, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -72,9 +72,23 @@ export function PresentationToolbar({
             <Icon className="h-5 w-5" /><span className="text-[10px] font-medium">{label}</span>
           </Button>
           {active && (
-            <div className="absolute top-16 flex gap-1 bg-white dark:bg-neutral-800 p-1 rounded shadow-lg border z-50">
+            <div className="absolute top-16 flex gap-1.5 bg-white dark:bg-neutral-800 p-2 rounded-lg shadow-lg border z-50">
               {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#000000'].map((c) => (
-                <button key={c} className={cn("w-6 h-6 rounded border-2", color === c ? "border-neutral-900 dark:border-white" : "border-transparent")} style={{ backgroundColor: c }} onClick={() => setColor(c)} />
+                <button 
+                  key={c} 
+                  className={cn(
+                    "w-7 h-7 rounded border-2 relative transition-all",
+                    color === c 
+                      ? "border-neutral-900 dark:border-white ring-2 ring-neutral-400 dark:ring-neutral-500 scale-110" 
+                      : "border-neutral-200 dark:border-neutral-700 hover:border-neutral-400"
+                  )} 
+                  style={{ backgroundColor: c }} 
+                  onClick={() => setColor(c)}
+                >
+                  {color === c && (
+                    <Check className="absolute inset-0 m-auto h-4 w-4 text-white" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }} />
+                  )}
+                </button>
               ))}
             </div>
           )}

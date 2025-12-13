@@ -209,6 +209,10 @@ export function PresentationCanvas({
     };
     const updatedSlide = { ...activeSlide, shapes: [...(activeSlide.shapes || []), newLine] };
     onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
+    
+    // 라인 그리기 완료 후 선택 도구로 전환 (색상 팔레트 닫기)
+    setActiveTool('select');
+    setLineToolActive(false);
   }, [activeSlide, activeSlideIndex, slides, onSlidesChange, lineColor]);
 
   const handleAddLinkWithDialog = useCallback((x: number, y: number) => {
@@ -418,7 +422,8 @@ export function PresentationCanvas({
     if (onComponentSelect) {
       onComponentSelect(null);
     }
-  }, [activeSlideIndex, onComponentSelect]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlideIndex]); // Only clear when activeSlideIndex changes, not when onComponentSelect changes
 
 
   const handleAddMemoWithDialog = useCallback((x: number, y: number) => {
@@ -475,6 +480,10 @@ export function PresentationCanvas({
     };
     const updatedSlide = { ...activeSlide, shapes: [...(activeSlide.shapes || []), newShape] };
     onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
+    
+    // 네모 그리기 완료 후 선택 도구로 전환 (색상 팔레트 닫기)
+    setActiveTool('select');
+    setShapeToolActive(false);
   }, [activeSlide, activeSlideIndex, slides, onSlidesChange, shapeColor]);
 
   const handleUpdateMarkerPosition = useCallback((markerId: string, x: number, y: number) => {
