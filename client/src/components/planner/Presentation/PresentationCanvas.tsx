@@ -182,13 +182,14 @@ export function PresentationCanvas({
   const handleAddLink = useCallback((startX: number, startY: number, endX: number, endY: number) => {
     if (!activeSlide) return;
     // 라인 도구는 shapes에 저장 (type: 'line')
+    // 시작점을 x, y로 저장하고, width/height는 끝점까지의 상대 거리 (음수 가능)
     const newLine: SlideShape = {
       id: uuidv4(),
       type: 'line',
-      x: Math.min(startX, endX),
-      y: Math.min(startY, endY),
-      width: Math.abs(endX - startX),
-      height: Math.abs(endY - startY),
+      x: startX,
+      y: startY,
+      width: endX - startX,
+      height: endY - startY,
       color: lineColor,
       strokeWidth: 3,
       fillColor: 'none',

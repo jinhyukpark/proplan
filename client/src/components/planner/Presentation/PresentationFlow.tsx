@@ -185,7 +185,46 @@ export function PresentationFlow(props: PresentationFlowProps) {
       draggable: false,
       selectable: false,
     }];
-  }, [activeSlide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, zoom, onAddMarker, onUpdateMarkerPosition, onDeleteMarker, onSelectMarker, onUpdateImagePosition, onUpdateImageSize, onDeleteImage, handleDeleteLink, handleUpdateLinkPosition, handleUpdateLinkSize, handleDeleteReference, handleUpdateReferencePosition, handleUpdateReferenceSize, onNavigateToSlide, onDeleteMemo, onUpdateMemoPosition, onUpdateMemoSize, handleDeleteShape, handleUpdateShapeColor, isDrawingLine, isDrawingShape, lineStart, shapeStart, currentLineEnd, currentShapeEnd, lineColor, shapeColor, onEditLink, onEditReference, onEditMemo]);
+  }, [
+    activeSlide,
+    markerToolActive,
+    imageToolActive,
+    linkToolActive,
+    noteToolActive,
+    memoToolActive,
+    selectedMarkerId,
+    zoom,
+    isDrawingLine,
+    isDrawingShape,
+    lineStart,
+    shapeStart,
+    currentLineEnd,
+    currentShapeEnd,
+    lineColor,
+    shapeColor,
+    onEditLink,
+    onEditReference,
+    onEditMemo,
+    handleDeleteLink,
+    handleDeleteShape,
+    handleUpdateShapeColor,
+    onAddMarker,
+    onUpdateMarkerPosition,
+    onDeleteMarker,
+    onSelectMarker,
+    onUpdateImagePosition,
+    onUpdateImageSize,
+    onDeleteImage,
+    onUpdateLinkPosition,
+    onUpdateLinkSize,
+    onDeleteReference,
+    onUpdateReferencePosition,
+    onUpdateReferenceSize,
+    onNavigateToSlide,
+    onDeleteMemo,
+    onUpdateMemoPosition,
+    onUpdateMemoSize,
+  ]);
 
   useEffect(() => {
     setTimeout(() => fitView({ padding: 0.05, duration: 200 }), 100);
@@ -342,16 +381,13 @@ export function PresentationFlow(props: PresentationFlowProps) {
     if (!isDrawingLine && !isDrawingShape) return;
 
     let animationFrameId: number | null = null;
-    let lastUpdateTime = 0;
-    const throttleMs = 16; // ~60fps
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      const now = performance.now();
-      if (now - lastUpdateTime < throttleMs) {
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        animationFrameId = requestAnimationFrame(() => {
-          const coords = getCanvasCoordinates(e.clientX, e.clientY);
-          if (!coords) return;
+      if (animationFrameId) return; // 이미 예약된 업데이트가 있으면 스킵
+      
+      animationFrameId = requestAnimationFrame(() => {
+        const coords = getCanvasCoordinates(e.clientX, e.clientY);
+        if (coords) {
           const { x, y } = coords;
           
           if (isDrawingLine && lineStart) {
@@ -362,27 +398,17 @@ export function PresentationFlow(props: PresentationFlowProps) {
           } else if (isDrawingShape && shapeStart) {
             setCurrentShapeEnd({ x, y });
           }
-          lastUpdateTime = performance.now();
-        });
-        return;
-      }
-      
-      const coords = getCanvasCoordinates(e.clientX, e.clientY);
-      if (!coords) return;
-      const { x, y } = coords;
-      
-      if (isDrawingLine && lineStart) {
-        // 라인 그리기 중에는 가장 가까운 연결 포인트에 스냅
-        const snapResult = findNearestConnectionPoint({ x, y }, activeSlide);
-        const snapPoint = snapResult ? snapResult.point : { x, y };
-        setCurrentLineEnd(snapPoint);
-      } else if (isDrawingShape && shapeStart) {
-        setCurrentShapeEnd({ x, y });
-      }
-      lastUpdateTime = now;
+        }
+        animationFrameId = null;
+      });
     };
 
     const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       if (!coords) return;
       const { x, y } = coords;
