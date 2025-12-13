@@ -832,14 +832,14 @@ function ComponentSettings({ component, onUpdate, onDelete }: ComponentSettingsP
           <div className="space-y-3">
             <UILabel className="text-xs font-semibold text-muted-foreground">Line Style</UILabel>
             <div className="space-y-2">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <UILabel className="text-xs text-muted-foreground">Color</UILabel>
                 <div className="flex gap-2">
                   <Input
                     type="color"
                     value={component.color}
                     onChange={(e) => handleChange('color', e.target.value)}
-                    className="h-8 w-16"
+                    className="h-8 w-12 p-1"
                   />
                   <Input
                     type="text"
@@ -848,6 +848,23 @@ function ComponentSettings({ component, onUpdate, onDelete }: ComponentSettingsP
                     className="h-8 text-xs flex-1 font-mono"
                     placeholder="#3b82f6"
                   />
+                </div>
+                {/* 색상 팔레트 */}
+                <div className="flex gap-1 flex-wrap">
+                  {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#000000'].map((c) => (
+                    <button
+                      key={c}
+                      className={cn(
+                        "w-6 h-6 rounded border transition-all",
+                        component.color === c 
+                          ? "border-neutral-900 dark:border-white ring-2 ring-offset-1 ring-neutral-400" 
+                          : "border-neutral-300 hover:border-neutral-500"
+                      )}
+                      style={{ backgroundColor: c }}
+                      onClick={() => handleChange('color', c)}
+                      title={c}
+                    />
+                  ))}
                 </div>
               </div>
               <div className="space-y-1">
@@ -899,25 +916,106 @@ function ComponentSettings({ component, onUpdate, onDelete }: ComponentSettingsP
         <>
           <div className="space-y-3">
             <UILabel className="text-xs font-semibold text-muted-foreground">Shape Style</UILabel>
-            <div className="space-y-2">
-              <div className="space-y-1">
+            
+            {/* Stroke & Fill Color - 2열 레이아웃 */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Stroke Color */}
+              <div className="space-y-2">
                 <UILabel className="text-xs text-muted-foreground">Stroke Color</UILabel>
-                <Input
-                  type="color"
-                  value={component.color}
-                  onChange={(e) => handleChange('color', e.target.value)}
-                  className="h-8"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={component.color}
+                    onChange={(e) => handleChange('color', e.target.value)}
+                    className="h-8 w-12 p-1"
+                  />
+                  <Input
+                    type="text"
+                    value={component.color}
+                    onChange={(e) => handleChange('color', e.target.value)}
+                    className="h-8 text-xs flex-1 font-mono"
+                    placeholder="#3b82f6"
+                  />
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#000000'].map((c) => (
+                    <button
+                      key={c}
+                      className={cn(
+                        "w-6 h-6 rounded border transition-all",
+                        component.color === c 
+                          ? "border-neutral-900 dark:border-white ring-2 ring-offset-1 ring-neutral-400" 
+                          : "border-neutral-300 hover:border-neutral-500"
+                      )}
+                      style={{ backgroundColor: c }}
+                      onClick={() => handleChange('color', c)}
+                      title={c}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1">
+
+              {/* Fill Color */}
+              <div className="space-y-2">
                 <UILabel className="text-xs text-muted-foreground">Fill Color</UILabel>
-                <Input
-                  type="color"
-                  value={component.fillColor}
-                  onChange={(e) => handleChange('fillColor', e.target.value)}
-                  className="h-8"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={component.fillColor === 'none' ? '#ffffff' : component.fillColor}
+                    onChange={(e) => handleChange('fillColor', e.target.value)}
+                    className="h-8 w-12 p-1"
+                  />
+                  <Input
+                    type="text"
+                    value={component.fillColor === 'none' ? 'transparent' : component.fillColor}
+                    onChange={(e) => handleChange('fillColor', e.target.value === 'transparent' ? 'none' : e.target.value)}
+                    className="h-8 text-xs flex-1 font-mono"
+                    placeholder="transparent"
+                  />
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  <button
+                    className={cn(
+                      "w-6 h-6 rounded border transition-all bg-white relative",
+                      (component.fillColor === 'none' || component.fillOpacity === 0)
+                        ? "border-neutral-900 dark:border-white ring-2 ring-offset-1 ring-neutral-400" 
+                        : "border-neutral-300 hover:border-neutral-500"
+                    )}
+                    onClick={() => {
+                      handleChange('fillColor', 'none');
+                      handleChange('fillOpacity', 0);
+                    }}
+                    title="투명"
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-4 h-0.5 bg-red-500 rotate-45" />
+                    </div>
+                  </button>
+                  {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'].map((c) => (
+                    <button
+                      key={c}
+                      className={cn(
+                        "w-6 h-6 rounded border transition-all",
+                        component.fillColor === c 
+                          ? "border-neutral-900 dark:border-white ring-2 ring-offset-1 ring-neutral-400" 
+                          : "border-neutral-300 hover:border-neutral-500"
+                      )}
+                      style={{ backgroundColor: c }}
+                      onClick={() => {
+                        handleChange('fillColor', c);
+                        if (component.fillOpacity === 0) {
+                          handleChange('fillOpacity', 0.3);
+                        }
+                      }}
+                      title={c}
+                    />
+                  ))}
+                </div>
               </div>
+            </div>
+            
+            {/* Other properties */}
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <UILabel className="text-xs text-muted-foreground">Fill Opacity</UILabel>
                 <Input
