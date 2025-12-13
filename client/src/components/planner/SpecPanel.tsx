@@ -13,6 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label as UILabel } from "@/components/ui/label";
 
 export interface PageMetadata {
   title: string;
@@ -33,6 +35,15 @@ export interface ImageMetadata {
   };
 }
 
+export type SelectedComponent = 
+  | { type: 'image'; id: string; x: number; y: number; width: number; height: number; url: string }
+  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number }
+  | { type: 'shape'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; fillColor: string; fillOpacity: number }
+  | { type: 'link'; id: string; x: number; y: number; width: number; height: number; url: string; label: string }
+  | { type: 'memo'; id: string; x: number; y: number; width: number; height: number; title: string; content: string; style: string }
+  | { type: 'reference'; id: string; x: number; y: number; width: number; height: number; targetSlideId: string; label: string }
+  | null;
+
 interface SpecPanelProps {
   markers: Marker[];
   activeMarkerId: string | null;
@@ -43,8 +54,11 @@ interface SpecPanelProps {
   onSelectMarker: (id: string) => void;
   onAddComment: (id: string, text: string) => void;
   onNavigate?: (url: string) => void;
-  contentType?: 'url' | 'image';
+  contentType?: 'url' | 'image' | 'presentation';
   imageMetadata?: ImageMetadata;
+  selectedComponent?: SelectedComponent;
+  onUpdateComponent?: (id: string, updates: any) => void;
+  onDeleteComponent?: (id: string) => void;
 }
 
 const STATUS_CONFIG = {
@@ -66,11 +80,15 @@ export function SpecPanel({
   onNavigate,
   contentType = 'url',
   imageMetadata,
+  selectedComponent,
+  onUpdateComponent,
+  onDeleteComponent,
 }: SpecPanelProps) {
   
   const activeMarkerRef = useRef<HTMLDivElement>(null);
   const [commentInput, setCommentInput] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState("annotations");
 
   // Scroll to active marker
   useEffect(() => {
@@ -79,6 +97,13 @@ export function SpecPanel({
     }
     setShowHistory(false); // Reset history visibility when active marker changes
   }, [activeMarkerId]);
+
+  // Auto-switch to component tab when component is selected
+  useEffect(() => {
+    if (selectedComponent && contentType === 'presentation') {
+      setActiveTab('component');
+    }
+  }, [selectedComponent, contentType]);
 
   const handlePostComment = (markerId: string) => {
     if (!commentInput.trim()) return;
@@ -247,8 +272,253 @@ export function SpecPanel({
         </div>
       )}
 
-      {/* Marker List (Annotations) - Hidden for image content type */}
-      {contentType !== 'image' && (
+      {/* Tabs for Presentation mode */}
+      {contentType === 'presentation' && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-w-0 flex flex-col">
+          <TabsList className="w-full h-10 border-b border-border rounded-none bg-background/50 backdrop-blur-sm px-4">
+            <TabsTrigger value="annotations" className="flex-1 text-xs">
+              Annotations ({markers.length})
+            </TabsTrigger>
+            <TabsTrigger value="component" className="flex-1 text-xs">
+              Component {selectedComponent && `(${selectedComponent.type})`}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Annotations Tab Content */}
+          <TabsContent value="annotations" className="flex-1 min-w-0 mt-0 data-[state=inactive]:hidden">
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-4">
+                {markers.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">
+                    <Hash className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                    No annotations yet. <br/> Click on the canvas to add one.
+                  </div>
+                ) : (
+                  markers.map((marker) => (
+                    <div 
+                      key={marker.id}
+                      ref={activeMarkerId === marker.id ? activeMarkerRef : null}
+                      className={cn(
+                        "group relative flex flex-col gap-3 p-3 rounded-lg border transition-all duration-200",
+                        activeMarkerId === marker.id 
+                          ? "bg-background border-primary/50 shadow-md ring-1 ring-primary/20" 
+                          : "bg-background/50 border-transparent hover:border-border hover:bg-background"
+                      )}
+                      onClick={() => onSelectMarker(marker.id)}
+                    >
+                      {/* ... 기존 마커 리스트 내용 유지 ... */}
+                      <div className="flex gap-3">
+                        {/* Number Badge */}
+                        <div 
+                          className={cn(
+                            "w-6 h-6 shrink-0 flex items-center justify-center text-[10px] font-bold text-white shadow-sm mt-0.5",
+                            marker.type === 'link' ? "rounded-sm" : "rounded-full"
+                          )}
+                          style={{ backgroundColor: marker.type === 'link' ? '#0ea5e9' : marker.color }}
+                        >
+                          {marker.type === 'link' ? <LinkIcon className="w-3.5 h-3.5" /> : marker.number}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-foreground/80">
+                              {marker.type === 'link' ? 'Link Hotspot' : `Annotation #${marker.number}`}
+                            </span>
+                            
+                            <div className="flex items-center gap-2">
+                              {/* Status Selector */}
+                              <Select 
+                                value={marker.status} 
+                                onValueChange={(val: any) => onUpdateMarker(marker.id, { status: val })}
+                              >
+                                <SelectTrigger className="h-6 w-[100px] text-[10px] px-2 border-transparent bg-muted/50 hover:bg-muted focus:ring-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                                    <SelectItem key={key} value={key} className="text-xs">
+                                      <div className="flex items-center gap-2">
+                                        <config.icon className={cn("w-3 h-3", config.color)} />
+                                        {config.label}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {/* History Toggle */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-6 w-6 text-muted-foreground hover:text-foreground transition-colors",
+                                  showHistory && "bg-muted text-foreground"
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowHistory(!showHistory);
+                                }}
+                                title="View History"
+                              >
+                                <History className="w-3 h-3" />
+                              </Button>
+
+                              {/* Author Info */}
+                              {marker.author && (
+                                <div className="flex items-center gap-1.5" title={`Created by ${marker.author.name}`}>
+                                  <Avatar className="w-4 h-4">
+                                    <AvatarImage src={marker.author.avatar} />
+                                    <AvatarFallback className="text-[8px]">{marker.author.name[0]}</AvatarFallback>
+                                  </Avatar>
+                                </div>
+                              )}
+
+                              {/* Delete Action */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 transition-opacity",
+                                  (activeMarkerId === marker.id || "group-hover:opacity-100") 
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteMarker(marker.id);
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          {/* Link Input (If type is link) */}
+                          {marker.type === 'link' && (
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <LinkIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                                <Input
+                                  value={marker.linkUrl || ""}
+                                  onChange={(e) => onUpdateMarker(marker.id, { linkUrl: e.target.value })}
+                                  className="h-7 text-xs pl-7 bg-muted/30 border-transparent focus:bg-background"
+                                  placeholder="Enter target URL..."
+                                />
+                              </div>
+                              {onNavigate && marker.linkUrl && (
+                                <Button 
+                                  size="icon" 
+                                  variant="outline" 
+                                  className="h-7 w-7 shrink-0"
+                                  title="Go to Link"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (marker.linkUrl) onNavigate(marker.linkUrl);
+                                  }}
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Main Description */}
+                          <TextareaAutosize
+                            value={marker.description}
+                            onChange={(e) => onUpdateMarker(marker.id, { description: e.target.value })}
+                            className="w-full bg-transparent text-sm resize-none focus:outline-none placeholder:text-muted-foreground/40 leading-relaxed font-medium"
+                            placeholder={marker.type === 'link' ? "Describe where this link goes..." : "Write main requirement..."}
+                            minRows={1}
+                          />
+                        </div>
+                      </div>
+
+                      {/* History / Comments Section (Only visible when active) */}
+                      {activeMarkerId === marker.id && (
+                        <div className="pl-9 space-y-3 pt-2 border-t border-border/50 animate-in fade-in slide-in-from-top-1">
+                          {/* History List */}
+                          {showHistory && marker.history && marker.history.length > 0 && (
+                            <div className="space-y-3 mb-3 bg-muted/30 p-3 rounded-md border border-border/50">
+                              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">History</div>
+                              {marker.history.map((item) => (
+                                <div key={item.id} className="flex gap-2 text-xs group/history">
+                                  <Avatar className="w-5 h-5 shrink-0 mt-0.5 border border-border/50">
+                                    <AvatarImage src={item.author.avatar} />
+                                    <AvatarFallback className="text-[8px]">{item.author.name[0]}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-foreground/80">{item.author.name}</span>
+                                      <span className="text-[10px] text-muted-foreground">{format(new Date(item.createdAt), 'MMM d, h:mm a')}</span>
+                                    </div>
+                                    <div className={cn(
+                                      "text-muted-foreground leading-relaxed",
+                                      item.type === 'status_change' && "italic text-[10px] text-muted-foreground/70"
+                                    )}>
+                                      {item.content}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Add Comment Input */}
+                          <div className="flex gap-2 items-end">
+                            <TextareaAutosize
+                              value={commentInput}
+                              onChange={(e) => setCommentInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handlePostComment(marker.id);
+                                }
+                              }}
+                              placeholder="Reply or update status..."
+                              className="flex-1 bg-muted/50 rounded-md p-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-primary/20 min-h-[32px]"
+                              minRows={1}
+                            />
+                            <Button 
+                              size="icon" 
+                              className="h-8 w-8 shrink-0" 
+                              disabled={!commentInput.trim()}
+                              onClick={() => handlePostComment(marker.id)}
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+
+          {/* Component Settings Tab Content */}
+          <TabsContent value="component" className="flex-1 min-w-0 mt-0 data-[state=inactive]:hidden">
+            <ScrollArea className="h-full">
+              <div className="p-4">
+                {!selectedComponent ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">
+                    <ImageIcon className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                    No component selected. <br/> Click on a component to edit its properties.
+                  </div>
+                ) : (
+                  <ComponentSettings
+                    component={selectedComponent}
+                    onUpdate={onUpdateComponent || (() => {})}
+                    onDelete={onDeleteComponent || (() => {})}
+                  />
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Marker List (Annotations) - For non-presentation content types */}
+      {contentType !== 'image' && contentType !== 'presentation' && (
       <div className="flex-1 min-w-0 flex flex-col bg-muted/5">
         <div className="h-10 border-b border-border flex items-center px-6 justify-between shrink-0 bg-background/50 backdrop-blur-sm">
            <span className="text-xs font-semibold text-muted-foreground">Annotations ({markers.length})</span>
@@ -461,6 +731,289 @@ export function SpecPanel({
           </div>
         </ScrollArea>
       </div>
+      )}
+    </div>
+  );
+}
+
+// Component Settings Panel
+interface ComponentSettingsProps {
+  component: SelectedComponent;
+  onUpdate: (id: string, updates: any) => void;
+  onDelete: (id: string) => void;
+}
+
+function ComponentSettings({ component, onUpdate, onDelete }: ComponentSettingsProps) {
+  if (!component) return null;
+
+  const handleChange = (key: string, value: any) => {
+    onUpdate(component.id, { [key]: value });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Component Header */}
+      <div className="flex items-center justify-between pb-3 border-b">
+        <div>
+          <h3 className="font-semibold text-sm capitalize">{component.type} Properties</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">ID: {component.id.slice(0, 8)}</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs text-destructive hover:text-destructive"
+          onClick={() => onDelete(component.id)}
+        >
+          <Trash2 className="w-3 h-3 mr-1" />
+          Delete
+        </Button>
+      </div>
+
+      {/* Position & Size */}
+      <div className="space-y-3">
+        <UILabel className="text-xs font-semibold text-muted-foreground">Position & Size</UILabel>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <UILabel className="text-xs text-muted-foreground">X</UILabel>
+            <Input
+              type="number"
+              value={Math.round(component.x)}
+              onChange={(e) => handleChange('x', parseFloat(e.target.value))}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <UILabel className="text-xs text-muted-foreground">Y</UILabel>
+            <Input
+              type="number"
+              value={Math.round(component.y)}
+              onChange={(e) => handleChange('y', parseFloat(e.target.value))}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <UILabel className="text-xs text-muted-foreground">Width</UILabel>
+            <Input
+              type="number"
+              value={Math.round(component.width)}
+              onChange={(e) => handleChange('width', parseFloat(e.target.value))}
+              className="h-8 text-xs"
+            />
+          </div>
+          <div className="space-y-1">
+            <UILabel className="text-xs text-muted-foreground">Height</UILabel>
+            <Input
+              type="number"
+              value={Math.round(component.height)}
+              onChange={(e) => handleChange('height', parseFloat(e.target.value))}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Image specific settings */}
+      {component.type === 'image' && (
+        <div className="space-y-3">
+          <UILabel className="text-xs font-semibold text-muted-foreground">Image Source</UILabel>
+          <Input
+            type="text"
+            value={component.url}
+            onChange={(e) => handleChange('url', e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Image URL"
+          />
+        </div>
+      )}
+
+      {/* Line specific settings */}
+      {component.type === 'line' && (
+        <>
+          <div className="space-y-3">
+            <UILabel className="text-xs font-semibold text-muted-foreground">Line Style</UILabel>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Color</UILabel>
+                <Input
+                  type="color"
+                  value={component.color}
+                  onChange={(e) => handleChange('color', e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Stroke Width</UILabel>
+                <Input
+                  type="number"
+                  value={component.strokeWidth}
+                  onChange={(e) => handleChange('strokeWidth', parseFloat(e.target.value))}
+                  className="h-8 text-xs"
+                  min="1"
+                  max="20"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Shape specific settings */}
+      {component.type === 'shape' && (
+        <>
+          <div className="space-y-3">
+            <UILabel className="text-xs font-semibold text-muted-foreground">Shape Style</UILabel>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Stroke Color</UILabel>
+                <Input
+                  type="color"
+                  value={component.color}
+                  onChange={(e) => handleChange('color', e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Fill Color</UILabel>
+                <Input
+                  type="color"
+                  value={component.fillColor}
+                  onChange={(e) => handleChange('fillColor', e.target.value)}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Fill Opacity</UILabel>
+                <Input
+                  type="number"
+                  value={component.fillOpacity}
+                  onChange={(e) => handleChange('fillOpacity', parseFloat(e.target.value))}
+                  className="h-8 text-xs"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Stroke Width</UILabel>
+                <Input
+                  type="number"
+                  value={component.strokeWidth}
+                  onChange={(e) => handleChange('strokeWidth', parseFloat(e.target.value))}
+                  className="h-8 text-xs"
+                  min="1"
+                  max="20"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Link specific settings */}
+      {component.type === 'link' && (
+        <>
+          <div className="space-y-3">
+            <UILabel className="text-xs font-semibold text-muted-foreground">Link Properties</UILabel>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Label</UILabel>
+                <Input
+                  type="text"
+                  value={component.label}
+                  onChange={(e) => handleChange('label', e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="Link label"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">URL</UILabel>
+                <Input
+                  type="text"
+                  value={component.url}
+                  onChange={(e) => handleChange('url', e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Memo specific settings */}
+      {component.type === 'memo' && (
+        <>
+          <div className="space-y-3">
+            <UILabel className="text-xs font-semibold text-muted-foreground">Memo Properties</UILabel>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Title</UILabel>
+                <Input
+                  type="text"
+                  value={component.title}
+                  onChange={(e) => handleChange('title', e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="Memo title"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Content</UILabel>
+                <TextareaAutosize
+                  value={component.content}
+                  onChange={(e) => handleChange('content', e.target.value)}
+                  className="w-full p-2 text-xs rounded-md border border-input bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Memo content..."
+                  minRows={3}
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Style</UILabel>
+                <Select value={component.style} onValueChange={(val) => handleChange('style', val)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yellow">Yellow</SelectItem>
+                    <SelectItem value="pink">Pink</SelectItem>
+                    <SelectItem value="blue">Blue</SelectItem>
+                    <SelectItem value="green">Green</SelectItem>
+                    <SelectItem value="purple">Purple</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Reference specific settings */}
+      {component.type === 'reference' && (
+        <>
+          <div className="space-y-3">
+            <UILabel className="text-xs font-semibold text-muted-foreground">Reference Properties</UILabel>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Label</UILabel>
+                <Input
+                  type="text"
+                  value={component.label}
+                  onChange={(e) => handleChange('label', e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="Reference label"
+                />
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Target Slide ID</UILabel>
+                <Input
+                  type="text"
+                  value={component.targetSlideId}
+                  className="h-8 text-xs"
+                  disabled
+                />
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
