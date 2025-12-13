@@ -13,6 +13,15 @@ import { PresentationFlow } from './PresentationFlow';
 import { LinkDialog, ReferenceDialog, MemoDialog } from './Dialogs';
 import { Slide, SlideSection, SlideImage, SlideMarker, SlideLink, SlideReference, SlideMemo, SlideShape, CANVAS_WIDTH, CANVAS_HEIGHT } from './types';
 
+export type SelectedComponent = 
+  | { type: 'image'; id: string; x: number; y: number; width: number; height: number; url: string }
+  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number }
+  | { type: 'shape'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; fillColor: string; fillOpacity: number }
+  | { type: 'link'; id: string; x: number; y: number; width: number; height: number; url: string; label: string }
+  | { type: 'memo'; id: string; x: number; y: number; width: number; height: number; title: string; content: string; style: string }
+  | { type: 'reference'; id: string; x: number; y: number; width: number; height: number; targetSlideId: string; label: string }
+  | null;
+
 interface PresentationCanvasProps {
   presentationId: string;
   slides: Slide[];
@@ -21,13 +30,15 @@ interface PresentationCanvasProps {
   onMarkerSelect?: (markerId: string | null) => void;
   selectedMarkerId?: string | null;
   initialSections?: SlideSection[];
+  onComponentSelect?: (component: SelectedComponent) => void;
+  selectedComponentId?: string | null;
 }
 
 // Re-export types for backward compatibility
 export type { Slide, SlideSection, SlideImage, SlideMarker, SlideLink, SlideReference, SlideMemo, SlideShape, SlideRecording } from './types';
 
 export function PresentationCanvas({ 
-  presentationId, slides, onSlidesChange, onActiveSlideChange, onMarkerSelect, selectedMarkerId: externalSelectedMarkerId, initialSections = []
+  presentationId, slides, onSlidesChange, onActiveSlideChange, onMarkerSelect, selectedMarkerId: externalSelectedMarkerId, initialSections = [], onComponentSelect, selectedComponentId
 }: PresentationCanvasProps) {
   const [activeSlideIndex, setActiveSlideIndexInternal] = useState(0);
   const [sections, setSections] = useState<SlideSection[]>([]);
@@ -310,6 +321,102 @@ export function PresentationCanvas({
       setActiveSlideIndex(targetIndex);
     }
   }, [slides]);
+
+  // Handle component selection - find component info and notify parent
+  const handleComponentSelect = useCallback((componentId: string, componentType: string) => {
+    if (!activeSlide || !onComponentSelect) return;
+    
+    let component: SelectedComponent = null;
+    
+    // Find component by type and ID
+    if (componentType === 'image') {
+      const img = activeSlide.images.find(i => i.id === componentId);
+      if (img) {
+        component = { type: 'image', id: img.id, x: img.x, y: img.y, width: img.width, height: img.height, url: img.url };
+      }
+    } else if (componentType === 'line' || componentType === 'shape') {
+      const shape = activeSlide.shapes?.find(s => s.id === componentId);
+      if (shape) {
+        if (shape.type === 'line') {
+          component = { 
+            type: 'line', 
+            id: shape.id, 
+            x: shape.x, 
+            y: shape.y, 
+            width: shape.width, 
+            height: shape.height, 
+            color: shape.color, 
+            strokeWidth: shape.strokeWidth 
+          };
+        } else {
+          component = { 
+            type: 'shape', 
+            id: shape.id, 
+            x: shape.x, 
+            y: shape.y, 
+            width: shape.width, 
+            height: shape.height, 
+            color: shape.color, 
+            strokeWidth: shape.strokeWidth, 
+            fillColor: shape.fillColor || 'none', 
+            fillOpacity: shape.fillOpacity || 0 
+          };
+        }
+      }
+    } else if (componentType === 'link') {
+      const link = activeSlide.links?.find(l => l.id === componentId);
+      if (link) {
+        component = { 
+          type: 'link', 
+          id: link.id, 
+          x: link.x, 
+          y: link.y, 
+          width: link.width || 150, 
+          height: link.height || 32, 
+          url: link.url, 
+          label: link.label 
+        };
+      }
+    } else if (componentType === 'memo') {
+      const memo = activeSlide.memos?.find(m => m.id === componentId);
+      if (memo) {
+        component = { 
+          type: 'memo', 
+          id: memo.id, 
+          x: memo.x, 
+          y: memo.y, 
+          width: memo.width || 200, 
+          height: memo.height || 150, 
+          title: memo.title, 
+          content: memo.content, 
+          style: memo.style 
+        };
+      }
+    } else if (componentType === 'reference') {
+      const ref = activeSlide.references?.find(r => r.id === componentId);
+      if (ref) {
+        component = { 
+          type: 'reference', 
+          id: ref.id, 
+          x: ref.x, 
+          y: ref.y, 
+          width: ref.width || 150, 
+          height: ref.height || 32, 
+          targetSlideId: ref.targetSlideId, 
+          label: ref.label 
+        };
+      }
+    }
+    
+    onComponentSelect(component);
+  }, [activeSlide, onComponentSelect]);
+
+  // Clear component selection when slide changes
+  useEffect(() => {
+    if (onComponentSelect) {
+      onComponentSelect(null);
+    }
+  }, [activeSlideIndex, onComponentSelect]);
 
 
   const handleAddMemoWithDialog = useCallback((x: number, y: number) => {
@@ -633,7 +740,7 @@ export function PresentationCanvas({
 
         <div className="flex-1 relative">
           <ReactFlowProvider>
-            <PresentationFlow activeSlide={activeSlide} slides={slides} activeSlideIndex={activeSlideIndex} markerToolActive={markerToolActive} imageToolActive={imageToolActive} linkToolActive={linkToolActive} noteToolActive={noteToolActive} memoToolActive={memoToolActive} lineToolActive={lineToolActive} shapeToolActive={shapeToolActive} isDrawingLine={isDrawingLine} isDrawingShape={isDrawingShape} lineStart={lineStart} shapeStart={shapeStart} currentLineEnd={currentLineEnd} currentShapeEnd={currentShapeEnd} lineColor={lineColor} shapeColor={shapeColor} selectedMarkerId={selectedMarkerId} onAddMarker={handleAddMarker} onAddLink={handleAddLink} onAddShape={handleAddShape} onUpdateMarkerPosition={handleUpdateMarkerPosition} onDeleteMarker={handleDeleteMarker} onSelectMarker={setSelectedMarkerId} onUpdateImagePosition={handleUpdateImagePosition} onUpdateImageSize={handleUpdateImageSize} onDeleteImage={handleDeleteImage} onSlidesChange={onSlidesChange} onDrop={handleDrop} setIsDrawingLine={setIsDrawingLine} setIsDrawingShape={setIsDrawingShape} setLineStart={setLineStart} setShapeStart={setShapeStart} setCurrentLineEnd={setCurrentLineEnd} setCurrentShapeEnd={setCurrentShapeEnd} onImageClick={(x, y) => { setImageClickPosition({ x, y }); fileInputRef.current?.click(); }} onAddLinkWithDialog={handleAddLinkWithDialog} onAddNoteWithDialog={handleAddNoteWithDialog} onAddMemoWithDialog={handleAddMemoWithDialog} onDeleteReference={handleDeleteReference} onUpdateLinkPosition={handleUpdateLinkPosition} onUpdateLinkSize={handleUpdateLinkSize} onEditLink={handleEditLink} onUpdateReferencePosition={handleUpdateReferencePosition} onUpdateReferenceSize={handleUpdateReferenceSize} onEditReference={handleEditReference} onDeleteMemo={handleDeleteMemo} onUpdateMemoPosition={handleUpdateMemoPosition} onUpdateMemoSize={handleUpdateMemoSize} onEditMemo={handleEditMemo} onNavigateToSlide={handleNavigateToSlide} />
+            <PresentationFlow activeSlide={activeSlide} slides={slides} activeSlideIndex={activeSlideIndex} markerToolActive={markerToolActive} imageToolActive={imageToolActive} linkToolActive={linkToolActive} noteToolActive={noteToolActive} memoToolActive={memoToolActive} lineToolActive={lineToolActive} shapeToolActive={shapeToolActive} isDrawingLine={isDrawingLine} isDrawingShape={isDrawingShape} lineStart={lineStart} shapeStart={shapeStart} currentLineEnd={currentLineEnd} currentShapeEnd={currentShapeEnd} lineColor={lineColor} shapeColor={shapeColor} selectedMarkerId={selectedMarkerId} onAddMarker={handleAddMarker} onAddLink={handleAddLink} onAddShape={handleAddShape} onUpdateMarkerPosition={handleUpdateMarkerPosition} onDeleteMarker={handleDeleteMarker} onSelectMarker={setSelectedMarkerId} onUpdateImagePosition={handleUpdateImagePosition} onUpdateImageSize={handleUpdateImageSize} onDeleteImage={handleDeleteImage} onSlidesChange={onSlidesChange} onDrop={handleDrop} setIsDrawingLine={setIsDrawingLine} setIsDrawingShape={setIsDrawingShape} setLineStart={setLineStart} setShapeStart={setShapeStart} setCurrentLineEnd={setCurrentLineEnd} setCurrentShapeEnd={setCurrentShapeEnd} onImageClick={(x, y) => { setImageClickPosition({ x, y }); fileInputRef.current?.click(); }} onAddLinkWithDialog={handleAddLinkWithDialog} onAddNoteWithDialog={handleAddNoteWithDialog} onAddMemoWithDialog={handleAddMemoWithDialog} onDeleteReference={handleDeleteReference} onUpdateLinkPosition={handleUpdateLinkPosition} onUpdateLinkSize={handleUpdateLinkSize} onEditLink={handleEditLink} onUpdateReferencePosition={handleUpdateReferencePosition} onUpdateReferenceSize={handleUpdateReferenceSize} onEditReference={handleEditReference} onDeleteMemo={handleDeleteMemo} onUpdateMemoPosition={handleUpdateMemoPosition} onUpdateMemoSize={handleUpdateMemoSize} onEditMemo={handleEditMemo} onNavigateToSlide={handleNavigateToSlide} onComponentSelect={handleComponentSelect} selectedComponentId={selectedComponentId} />
           </ReactFlowProvider>
         </div>
       </div>

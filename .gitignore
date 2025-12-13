@@ -73,10 +73,6 @@ coverage
 *.pem
 *.key
 
-# Replit
-.local/
-.replit
-
 # Large files
 *.zip
 zipFile.zip

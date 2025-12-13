@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, memo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, {
   addEdge,
   updateEdge,
@@ -10,29 +10,17 @@ import ReactFlow, {
   Node,
   Edge,
   Connection,
-  Handle,
-  Position,
   BackgroundVariant,
   Panel,
-  NodeProps,
-  EdgeProps,
-  getBezierPath,
-  getStraightPath,
-  getSmoothStepPath,
-  BaseEdge,
   ReactFlowProvider,
   useReactFlow,
-  useUpdateNodeInternals,
   ConnectionMode,
-  EdgeLabelRenderer, // HTML 렌더링을 위해 필수
 } from 'reactflow';
-import { NodeResizer } from '@reactflow/node-resizer';
 import '@reactflow/node-resizer/dist/style.css';
 import 'reactflow/dist/style.css';
-// 경로가 다르다면 본인 프로젝트에 맞게 수정해주세요
-import { SiteItem } from './SiteMapPanel'; 
+import { SiteItem } from './SiteMapPanel';
 import { Button } from '@/components/ui/button';
-import { Plus, Layout, Globe, X, Circle, Square, Diamond, FileText, Spline, Minus, CornerDownRight, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, MoreHorizontal, BoxSelect, Settings, ImageIcon } from 'lucide-react';
+import { Plus, Circle, Square, Diamond, FileText, Spline, Minus, CornerDownRight, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, MoreHorizontal, BoxSelect } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,23 +34,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// 이미지 경로 확인 필요
-import placeholderImage from "@assets/generated_images/modern_saas_dashboard_interface_screenshot.png";
+// Import types and constants
+import { EdgeStyleType, LineStyleType, NODE_COLORS } from './types';
 
-type EdgeStyleType = 'bezier' | 'straight' | 'step';
-type LineStyleType = 'solid' | 'dashed';
+// Import edge components
+import { edgeTypes } from './edges';
 
-// 엣지 컨트롤 핸들 스타일
-const handleStyle: React.CSSProperties = {
-  width: 14,
-  height: 14,
-  background: '#3b82f6',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  border: '2px solid white',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-  pointerEvents: 'all',
-};
+// Import node components
+import { nodeTypes } from './nodes';
 
 // 엣지 라벨 컴포넌트
 const EdgeLabelBox = ({ 

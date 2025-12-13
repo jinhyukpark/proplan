@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import ReactFlow, {
   Background,
@@ -67,10 +67,12 @@ interface PresentationFlowProps {
   onUpdateMemoSize: (memoId: string, width: number, height: number) => void;
   onEditMemo: (memoId: string) => void;
   onNavigateToSlide: (slideId: string) => void;
+  onComponentSelect?: (componentId: string, componentType: string) => void;
+  selectedComponentId?: string | null;
 }
 
 export function PresentationFlow(props: PresentationFlowProps) {
-  const { activeSlide, slides, activeSlideIndex, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, lineToolActive, shapeToolActive, isDrawingLine, isDrawingShape, lineStart, shapeStart, currentLineEnd, currentShapeEnd, lineColor, shapeColor, selectedMarkerId, onAddMarker, onAddLink, onAddShape, onUpdateMarkerPosition, onDeleteMarker, onSelectMarker, onUpdateImagePosition, onUpdateImageSize, onDeleteImage, onSlidesChange, onDrop, setIsDrawingLine, setIsDrawingShape, setLineStart, setShapeStart, setCurrentLineEnd, setCurrentShapeEnd, onImageClick, onAddLinkWithDialog, onAddNoteWithDialog, onAddMemoWithDialog, onDeleteReference, onUpdateLinkPosition, onUpdateLinkSize, onEditLink, onUpdateReferencePosition, onUpdateReferenceSize, onEditReference, onDeleteMemo, onUpdateMemoPosition, onUpdateMemoSize, onEditMemo, onNavigateToSlide } = props;
+  const { activeSlide, slides, activeSlideIndex, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, lineToolActive, shapeToolActive, isDrawingLine, isDrawingShape, lineStart, shapeStart, currentLineEnd, currentShapeEnd, lineColor, shapeColor, selectedMarkerId, onAddMarker, onAddLink, onAddShape, onUpdateMarkerPosition, onDeleteMarker, onSelectMarker, onUpdateImagePosition, onUpdateImageSize, onDeleteImage, onSlidesChange, onDrop, setIsDrawingLine, setIsDrawingShape, setLineStart, setShapeStart, setCurrentLineEnd, setCurrentShapeEnd, onImageClick, onAddLinkWithDialog, onAddNoteWithDialog, onAddMemoWithDialog, onDeleteReference, onUpdateLinkPosition, onUpdateLinkSize, onEditLink, onUpdateReferencePosition, onUpdateReferenceSize, onEditReference, onDeleteMemo, onUpdateMemoPosition, onUpdateMemoSize, onEditMemo, onNavigateToSlide, onComponentSelect, selectedComponentId } = props;
   const { fitView } = useReactFlow();
   const { zoom } = useViewport();
 
@@ -136,6 +138,133 @@ export function PresentationFlow(props: PresentationFlowProps) {
     onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
   }, [slides, activeSlideIndex, onSlidesChange]);
 
+  const handleUpdateShapePosition = useCallback((shapeId: string, x: number, y: number) => {
+    const slide = slides[activeSlideIndex];
+    if (!slide) return;
+    const updatedSlide = { ...slide, shapes: (slide.shapes || []).map(s => s.id === shapeId ? { ...s, x, y } : s) };
+    onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
+  }, [slides, activeSlideIndex, onSlidesChange]);
+
+  const handleUpdateShapeSize = useCallback((shapeId: string, width: number, height: number) => {
+    const slide = slides[activeSlideIndex];
+    if (!slide) return;
+    const updatedSlide = { ...slide, shapes: (slide.shapes || []).map(s => s.id === shapeId ? { ...s, width, height } : s) };
+    onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
+  }, [slides, activeSlideIndex, onSlidesChange]);
+
+  const handleUpdateLineEndpoints = useCallback((shapeId: string, startX: number, startY: number, endX: number, endY: number) => {
+    const slide = slides[activeSlideIndex];
+    if (!slide) return;
+    // 라인의 경우 x, y는 시작점, width/height는 (끝점 - 시작점)
+    const updatedSlide = {
+      ...slide,
+      shapes: (slide.shapes || []).map(s =>
+        s.id === shapeId ? { ...s, x: startX, y: startY, width: endX - startX, height: endY - startY } : s
+      )
+    };
+    onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
+  }, [slides, activeSlideIndex, onSlidesChange]);
+
+  // 콜백 함수들을 ref로 안정화 - 리렌더링 시에도 동일한 참조 유지
+  const callbacksRef = useRef({
+    handleDeleteLink,
+    handleUpdateLinkPosition,
+    handleUpdateLinkSize,
+    handleDeleteReference,
+    handleUpdateReferencePosition,
+    handleUpdateReferenceSize,
+    handleDeleteShape,
+    handleUpdateShapeColor,
+    handleUpdateShapePosition,
+    handleUpdateShapeSize,
+    handleUpdateLineEndpoints,
+    onAddMarker,
+    onUpdateMarkerPosition,
+    onDeleteMarker,
+    onSelectMarker,
+    onUpdateImagePosition,
+    onUpdateImageSize,
+    onDeleteImage,
+    onNavigateToSlide,
+    onDeleteMemo,
+    onUpdateMemoPosition,
+    onUpdateMemoSize,
+    onEditLink,
+    onEditReference,
+    onEditMemo,
+    onDeleteReference,
+    onUpdateLinkPosition,
+    onUpdateLinkSize,
+    onUpdateReferencePosition,
+    onUpdateReferenceSize,
+  });
+
+  // 콜백 ref 업데이트 (리렌더링 시 최신 함수로 갱신하되 참조는 유지)
+  useEffect(() => {
+    callbacksRef.current = {
+      handleDeleteLink,
+      handleUpdateLinkPosition,
+      handleUpdateLinkSize,
+      handleDeleteReference,
+      handleUpdateReferencePosition,
+      handleUpdateReferenceSize,
+      handleDeleteShape,
+      handleUpdateShapeColor,
+      handleUpdateShapePosition,
+      handleUpdateShapeSize,
+      handleUpdateLineEndpoints,
+      onAddMarker,
+      onUpdateMarkerPosition,
+      onDeleteMarker,
+      onSelectMarker,
+      onUpdateImagePosition,
+      onUpdateImageSize,
+      onDeleteImage,
+      onNavigateToSlide,
+      onDeleteMemo,
+      onUpdateMemoPosition,
+      onUpdateMemoSize,
+      onEditLink,
+      onEditReference,
+      onEditMemo,
+      onDeleteReference,
+      onUpdateLinkPosition,
+      onUpdateLinkSize,
+      onUpdateReferencePosition,
+      onUpdateReferenceSize,
+    };
+  });
+
+  // 안정적인 콜백 래퍼 생성
+  const stableCallbacks = useMemo(() => ({
+    onAddMarker: (x: number, y: number) => callbacksRef.current.onAddMarker(x, y),
+    onUpdateMarkerPosition: (id: string, x: number, y: number) => callbacksRef.current.onUpdateMarkerPosition(id, x, y),
+    onDeleteMarker: (id: string) => callbacksRef.current.onDeleteMarker(id),
+    onSelectMarker: (id: string | null) => callbacksRef.current.onSelectMarker(id),
+    onUpdateImagePosition: (id: string, x: number, y: number) => callbacksRef.current.onUpdateImagePosition(id, x, y),
+    onUpdateImageSize: (id: string, w: number, h: number) => callbacksRef.current.onUpdateImageSize(id, w, h),
+    onDeleteImage: (id: string) => callbacksRef.current.onDeleteImage(id),
+    onDeleteLink: (id: string) => callbacksRef.current.handleDeleteLink(id),
+    onUpdateLinkPosition: (id: string, x: number, y: number) => callbacksRef.current.onUpdateLinkPosition(id, x, y),
+    onUpdateLinkSize: (id: string, w: number, h: number) => callbacksRef.current.onUpdateLinkSize(id, w, h),
+    onEditLink: (id: string) => callbacksRef.current.onEditLink(id),
+    onDeleteReference: (id: string) => callbacksRef.current.onDeleteReference(id),
+    onUpdateReferencePosition: (id: string, x: number, y: number) => callbacksRef.current.onUpdateReferencePosition(id, x, y),
+    onUpdateReferenceSize: (id: string, w: number, h: number) => callbacksRef.current.onUpdateReferenceSize(id, w, h),
+    onEditReference: (id: string) => callbacksRef.current.onEditReference(id),
+    onNavigateToSlide: (id: string) => callbacksRef.current.onNavigateToSlide(id),
+    onDeleteMemo: (id: string) => callbacksRef.current.onDeleteMemo(id),
+    onUpdateMemoPosition: (id: string, x: number, y: number) => callbacksRef.current.onUpdateMemoPosition(id, x, y),
+    onUpdateMemoSize: (id: string, w: number, h: number) => callbacksRef.current.onUpdateMemoSize(id, w, h),
+    onEditMemo: (id: string) => callbacksRef.current.onEditMemo(id),
+    onDeleteShape: (id: string) => callbacksRef.current.handleDeleteShape(id),
+    onUpdateShapeColor: (id: string, c: string, fc: string, fo: number) => callbacksRef.current.handleUpdateShapeColor(id, c, fc, fo),
+    onUpdateShapePosition: (id: string, x: number, y: number) => callbacksRef.current.handleUpdateShapePosition(id, x, y),
+    onUpdateShapeSize: (id: string, w: number, h: number) => callbacksRef.current.handleUpdateShapeSize(id, w, h),
+    onUpdateLineEndpoints: (id: string, sx: number, sy: number, ex: number, ey: number) => callbacksRef.current.handleUpdateLineEndpoints(id, sx, sy, ex, ey),
+    onComponentSelect: onComponentSelect ? (id: string, type: string) => onComponentSelect(id, type) : undefined,
+  }), [onComponentSelect]); // onComponentSelect 의존성 추가
+
   const nodes = useMemo(() => {
     if (!activeSlide) return [];
     return [{
@@ -150,65 +279,12 @@ export function PresentationFlow(props: PresentationFlowProps) {
         noteToolActive,
         memoToolActive,
         selectedMarkerId,
-        zoom,
-        onAddMarker,
-        onUpdateMarkerPosition,
-        onDeleteMarker,
-        onSelectMarker,
-        onUpdateImagePosition,
-        onUpdateImageSize,
-        onDeleteImage,
-        onDeleteLink: handleDeleteLink,
-        onUpdateLinkPosition,
-        onUpdateLinkSize,
-        onEditLink,
-        onDeleteReference,
-        onUpdateReferencePosition,
-        onUpdateReferenceSize,
-        onEditReference,
-        onNavigateToSlide,
-        onDeleteMemo,
-        onUpdateMemoPosition,
-        onUpdateMemoSize,
-        onEditMemo,
-        onDeleteShape: handleDeleteShape,
-        onUpdateShapeColor: handleUpdateShapeColor,
+        ...stableCallbacks,
       } as SlideNodeData,
       draggable: false,
       selectable: false,
     }];
-  }, [
-    activeSlide,
-    markerToolActive,
-    imageToolActive,
-    linkToolActive,
-    noteToolActive,
-    memoToolActive,
-    selectedMarkerId,
-    zoom,
-    onEditLink,
-    onEditReference,
-    onEditMemo,
-    handleDeleteLink,
-    handleDeleteShape,
-    handleUpdateShapeColor,
-    onAddMarker,
-    onUpdateMarkerPosition,
-    onDeleteMarker,
-    onSelectMarker,
-    onUpdateImagePosition,
-    onUpdateImageSize,
-    onDeleteImage,
-    onUpdateLinkPosition,
-    onUpdateLinkSize,
-    onDeleteReference,
-    onUpdateReferencePosition,
-    onUpdateReferenceSize,
-    onNavigateToSlide,
-    onDeleteMemo,
-    onUpdateMemoPosition,
-    onUpdateMemoSize,
-  ]);
+  }, [activeSlide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, stableCallbacks]);
 
   useEffect(() => {
     setTimeout(() => fitView({ padding: 0.05, duration: 200 }), 100);
@@ -306,20 +382,14 @@ export function PresentationFlow(props: PresentationFlowProps) {
     
     if (lineToolActive && !isDrawingLine) {
       event.preventDefault();
-      // requestAnimationFrame을 사용하여 상태 업데이트를 다음 프레임으로 지연하여 깜박임 방지
-      requestAnimationFrame(() => {
-        setLineStart({ x, y });
-        setCurrentLineEnd({ x, y });
-        setIsDrawingLine(true);
-      });
+      setLineStart({ x, y });
+      setCurrentLineEnd({ x, y });
+      setIsDrawingLine(true);
     } else if (shapeToolActive && !isDrawingShape) {
       event.preventDefault();
-      // requestAnimationFrame을 사용하여 상태 업데이트를 다음 프레임으로 지연하여 깜박임 방지
-      requestAnimationFrame(() => {
-        setShapeStart({ x, y });
-        setCurrentShapeEnd({ x, y });
-        setIsDrawingShape(true);
-      });
+      setShapeStart({ x, y });
+      setCurrentShapeEnd({ x, y });
+      setIsDrawingShape(true);
     }
   };
 
@@ -371,13 +441,16 @@ export function PresentationFlow(props: PresentationFlowProps) {
     if (!isDrawingLine && !isDrawingShape) return;
 
     let animationFrameId: number | null = null;
+    let lastUpdateTime = 0;
+    const throttleMs = 16; // ~60fps
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (animationFrameId) return; // 이미 예약된 업데이트가 있으면 스킵
-      
-      animationFrameId = requestAnimationFrame(() => {
-        const coords = getCanvasCoordinates(e.clientX, e.clientY);
-        if (coords) {
+      const now = performance.now();
+      if (now - lastUpdateTime < throttleMs) {
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(() => {
+          const coords = getCanvasCoordinates(e.clientX, e.clientY);
+          if (!coords) return;
           const { x, y } = coords;
           
           if (isDrawingLine && lineStart) {
@@ -388,17 +461,27 @@ export function PresentationFlow(props: PresentationFlowProps) {
           } else if (isDrawingShape && shapeStart) {
             setCurrentShapeEnd({ x, y });
           }
-        }
-        animationFrameId = null;
-      });
+          lastUpdateTime = performance.now();
+        });
+        return;
+      }
+      
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      if (!coords) return;
+      const { x, y } = coords;
+      
+      if (isDrawingLine && lineStart) {
+        // 라인 그리기 중에는 가장 가까운 연결 포인트에 스냅
+        const snapResult = findNearestConnectionPoint({ x, y }, activeSlide);
+        const snapPoint = snapResult ? snapResult.point : { x, y };
+        setCurrentLineEnd(snapPoint);
+      } else if (isDrawingShape && shapeStart) {
+        setCurrentShapeEnd({ x, y });
+      }
+      lastUpdateTime = now;
     };
 
     const handleGlobalMouseUp = (e: MouseEvent) => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-      }
-      
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       if (!coords) return;
       const { x, y } = coords;
@@ -435,9 +518,99 @@ export function PresentationFlow(props: PresentationFlowProps) {
     };
   }, [isDrawingLine, isDrawingShape, lineStart, shapeStart, getCanvasCoordinates, onAddLink, onAddShape, setIsDrawingLine, setIsDrawingShape, setLineStart, setShapeStart, setCurrentLineEnd, setCurrentShapeEnd, findNearestConnectionPoint, activeSlide]);
 
+  // 드로잉 오버레이용 ref - DOM 직접 조작으로 깜박임 방지
+  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const lineRef = useRef<SVGLineElement>(null);
+  const lineStartCircleRef = useRef<SVGCircleElement>(null);
+  const lineEndCircleRef = useRef<SVGCircleElement>(null);
+  const rectShapeRef = useRef<SVGRectElement>(null);
+
+  // 드로잉 오버레이 위치/크기 업데이트 (DOM 직접 조작)
+  const updateOverlayPosition = useCallback(() => {
+    const slideElement = document.querySelector('[style*="1920"]') as HTMLElement;
+    const svg = svgRef.current;
+    const container = containerRef.current;
+    if (!slideElement || !svg || !container) return;
+
+    const slideRect = slideElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+
+    // 부모 컨테이너 기준 상대 위치 계산
+    const left = slideRect.left - containerRect.left;
+    const top = slideRect.top - containerRect.top;
+
+    svg.style.left = `${left}px`;
+    svg.style.top = `${top}px`;
+    svg.style.width = `${slideRect.width}px`;
+    svg.style.height = `${slideRect.height}px`;
+    svg.style.display = 'block';
+  }, []);
+
+  // 드로잉 미리보기 업데이트 (DOM 직접 조작 - 리렌더링 없음)
+  useEffect(() => {
+    if (!isDrawingLine && !isDrawingShape) {
+      if (svgRef.current) {
+        svgRef.current.style.display = 'none';
+      }
+      return;
+    }
+
+    updateOverlayPosition();
+
+    const slideElement = document.querySelector('[style*="1920"]') as HTMLElement;
+    if (!slideElement) return;
+
+    const slideRect = slideElement.getBoundingClientRect();
+    const scaleX = slideRect.width / CANVAS_WIDTH;
+    const scaleY = slideRect.height / CANVAS_HEIGHT;
+
+    // 라인 미리보기 업데이트
+    if (isDrawingLine && lineStart && currentLineEnd && lineRef.current && lineStartCircleRef.current && lineEndCircleRef.current) {
+      lineRef.current.setAttribute('x1', String(lineStart.x * scaleX));
+      lineRef.current.setAttribute('y1', String(lineStart.y * scaleY));
+      lineRef.current.setAttribute('x2', String(currentLineEnd.x * scaleX));
+      lineRef.current.setAttribute('y2', String(currentLineEnd.y * scaleY));
+      lineRef.current.setAttribute('stroke', lineColor);
+      lineRef.current.style.display = 'block';
+
+      lineStartCircleRef.current.setAttribute('cx', String(lineStart.x * scaleX));
+      lineStartCircleRef.current.setAttribute('cy', String(lineStart.y * scaleY));
+      lineStartCircleRef.current.setAttribute('fill', lineColor);
+      lineStartCircleRef.current.style.display = 'block';
+
+      lineEndCircleRef.current.setAttribute('cx', String(currentLineEnd.x * scaleX));
+      lineEndCircleRef.current.setAttribute('cy', String(currentLineEnd.y * scaleY));
+      lineEndCircleRef.current.setAttribute('fill', lineColor);
+      lineEndCircleRef.current.style.display = 'block';
+    } else {
+      if (lineRef.current) lineRef.current.style.display = 'none';
+      if (lineStartCircleRef.current) lineStartCircleRef.current.style.display = 'none';
+      if (lineEndCircleRef.current) lineEndCircleRef.current.style.display = 'none';
+    }
+
+    // 네모 미리보기 업데이트
+    if (isDrawingShape && shapeStart && currentShapeEnd && rectShapeRef.current) {
+      const x = Math.min(shapeStart.x, currentShapeEnd.x) * scaleX;
+      const y = Math.min(shapeStart.y, currentShapeEnd.y) * scaleY;
+      const width = Math.abs(currentShapeEnd.x - shapeStart.x) * scaleX;
+      const height = Math.abs(currentShapeEnd.y - shapeStart.y) * scaleY;
+
+      rectShapeRef.current.setAttribute('x', String(x));
+      rectShapeRef.current.setAttribute('y', String(y));
+      rectShapeRef.current.setAttribute('width', String(width));
+      rectShapeRef.current.setAttribute('height', String(height));
+      rectShapeRef.current.setAttribute('stroke', shapeColor);
+      rectShapeRef.current.style.display = 'block';
+    } else {
+      if (rectShapeRef.current) rectShapeRef.current.style.display = 'none';
+    }
+  }, [isDrawingLine, isDrawingShape, lineStart, currentLineEnd, shapeStart, currentShapeEnd, lineColor, shapeColor, updateOverlayPosition]);
+
   return (
-    <div 
-      className={cn((markerToolActive || imageToolActive) && "marker-mode-active")} 
+    <div
+      ref={containerRef}
+      className={cn((markerToolActive || imageToolActive) && "marker-mode-active")}
       style={{ width: '100%', height: '100%', position: 'relative' }}
       onMouseDown={handleNodeMouseDown}
       onMouseUp={handleNodeMouseUp}
@@ -471,57 +644,39 @@ export function PresentationFlow(props: PresentationFlowProps) {
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable style={{ width: 120, height: 80 }} />
       </ReactFlow>
-      
-      {/* 드래그 중인 라인/네모 미리보기 오버레이 - SlideNode와 분리하여 리렌더링 방지 */}
-      {(isDrawingLine || isDrawingShape) && (
-        <svg
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            zIndex: 1000,
-          }}
-        >
-          {/* 드래그 중인 라인 미리보기 */}
-          {isDrawingLine && lineStart && currentLineEnd && (
-            <g>
-              <line
-                x1={lineStart.x}
-                y1={lineStart.y}
-                x2={currentLineEnd.x}
-                y2={currentLineEnd.y}
-                stroke={lineColor}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeDasharray="5,5"
-                opacity={0.7}
-              />
-              <circle cx={lineStart.x} cy={lineStart.y} r={4} fill={lineColor} opacity={0.7} />
-              <circle cx={currentLineEnd.x} cy={currentLineEnd.y} r={4} fill={lineColor} opacity={0.7} />
-            </g>
-          )}
-          
-          {/* 드래그 중인 네모 미리보기 */}
-          {isDrawingShape && shapeStart && currentShapeEnd && (
-            <g>
-              <rect
-                x={Math.min(shapeStart.x, currentShapeEnd.x)}
-                y={Math.min(shapeStart.y, currentShapeEnd.y)}
-                width={Math.abs(currentShapeEnd.x - shapeStart.x)}
-                height={Math.abs(currentShapeEnd.y - shapeStart.y)}
-                stroke={shapeColor}
-                strokeWidth={2}
-                fill="none"
-                strokeDasharray="5,5"
-                opacity={0.7}
-              />
-            </g>
-          )}
-        </svg>
-      )}
+
+      {/* 드로잉 오버레이 - DOM 직접 조작으로 깜박임 완전 방지 */}
+      <svg
+        ref={svgRef}
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
+          zIndex: 9999,
+          display: 'none',
+        }}
+      >
+        {/* 라인 미리보기 요소들 */}
+        <line
+          ref={lineRef}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeDasharray="5,5"
+          opacity={0.7}
+          style={{ display: 'none' }}
+        />
+        <circle ref={lineStartCircleRef} r={4} opacity={0.7} style={{ display: 'none' }} />
+        <circle ref={lineEndCircleRef} r={4} opacity={0.7} style={{ display: 'none' }} />
+
+        {/* 네모 미리보기 요소 */}
+        <rect
+          ref={rectShapeRef}
+          strokeWidth={2}
+          fill="none"
+          strokeDasharray="5,5"
+          opacity={0.7}
+          style={{ display: 'none' }}
+        />
+      </svg>
     </div>
   );
 }

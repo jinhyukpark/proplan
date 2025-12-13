@@ -181,6 +181,8 @@ export default function Planner() {
   const [presentationsSectionsData, setPresentationsSectionsData] = useState<Record<string, SlideSection[]>>({});
   const [activePptSlideIndex, setActivePptSlideIndex] = useState(0);
   const [selectedPptMarkerId, setSelectedPptMarkerId] = useState<string | null>(null);
+  const [selectedPptComponent, setSelectedPptComponent] = useState<any>(null);
+  const [selectedPptComponentId, setSelectedPptComponentId] = useState<string | null>(null);
 
   // Flow Selection State
   const [selectedFlowNodes, setSelectedFlowNodes] = useState<Node[]>([]);
@@ -986,6 +988,11 @@ export default function Planner() {
                 onActiveSlideChange={setActivePptSlideIndex}
                 onMarkerSelect={setSelectedPptMarkerId}
                 selectedMarkerId={selectedPptMarkerId}
+                onComponentSelect={(component) => {
+                  setSelectedPptComponent(component);
+                  setSelectedPptComponentId(component?.id || null);
+                }}
+                selectedComponentId={selectedPptComponentId}
               />
             ) : (
               <BrowserCanvas 
@@ -1230,18 +1237,98 @@ export default function Planner() {
                   const slides = getCurrentPresentationSlides(presentationId);
                   const activeSlide = slides[activePptSlideIndex];
                   const slideMarkers = activeSlide?.markers || [];
-                  
-                  const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-                    pending: { label: 'Pending', color: 'text-muted-foreground', bg: 'bg-muted' },
-                    in_progress: { label: 'In Progress', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                    done: { label: 'Done', color: 'text-green-500', bg: 'bg-green-500/10' },
-                    hold: { label: 'Hold', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+
+                  // Convert slide markers to Marker type for SpecPanel
+                  const convertedMarkers = slideMarkers.map(m => ({
+                    id: m.id,
+                    number: m.number,
+                    x: m.x,
+                    y: m.y,
+                    label: m.label || '',
+                    description: m.label || '',
+                    color: '#3b82f6',
+                    status: (m.status || 'pending') as 'pending' | 'in_progress' | 'done' | 'hold',
+                    type: 'annotation' as const,
+                    authorId: m.authorId,
+                    authorName: m.authorName,
+                    createdAt: m.createdAt,
+                    comments: m.comments || [],
+                    history: m.history || [],
+                    author: {
+                      id: m.authorId,
+                      name: m.authorName,
+                      avatar: m.authorAvatar
+                    }
+                  }));
+
+                  const handleUpdatePptComponent = (componentId: string, updates: any) => {
+                    if (!activeSlide) return;
+
+                    let updatedSlide = { ...activeSlide };
+
+                    // Find and update the component
+                    if (selectedPptComponent?.type === 'image') {
+                      updatedSlide.images = activeSlide.images.map(img =>
+                        img.id === componentId ? { ...img, ...updates } : img
+                      );
+                    } else if (selectedPptComponent?.type === 'line' || selectedPptComponent?.type === 'shape') {
+                      updatedSlide.shapes = (activeSlide.shapes || []).map(s =>
+                        s.id === componentId ? { ...s, ...updates } : s
+                      );
+                    } else if (selectedPptComponent?.type === 'link') {
+                      updatedSlide.links = (activeSlide.links || []).map(l =>
+                        l.id === componentId ? { ...l, ...updates } : l
+                      );
+                    } else if (selectedPptComponent?.type === 'memo') {
+                      updatedSlide.memos = (activeSlide.memos || []).map(m =>
+                        m.id === componentId ? { ...m, ...updates } : m
+                      );
+                    } else if (selectedPptComponent?.type === 'reference') {
+                      updatedSlide.references = (activeSlide.references || []).map(r =>
+                        r.id === componentId ? { ...r, ...updates } : r
+                      );
+                    }
+
+                    const newSlides = slides.map((s, i) =>
+                      i === activePptSlideIndex ? updatedSlide : s
+                    );
+                    handlePresentationSlidesChange(presentationId, newSlides);
+                    
+                    // Update selected component state
+                    if (selectedPptComponent) {
+                      setSelectedPptComponent({ ...selectedPptComponent, ...updates });
+                    }
                   };
-                  
-                  const handleUpdatePptMarker = (markerId: string, updates: Partial<typeof slideMarkers[0]>) => {
+
+                  const handleDeletePptComponent = (componentId: string) => {
+                    if (!activeSlide || !selectedPptComponent) return;
+
+                    let updatedSlide = { ...activeSlide };
+
+                    if (selectedPptComponent.type === 'image') {
+                      updatedSlide.images = activeSlide.images.filter(img => img.id !== componentId);
+                    } else if (selectedPptComponent.type === 'line' || selectedPptComponent.type === 'shape') {
+                      updatedSlide.shapes = (activeSlide.shapes || []).filter(s => s.id !== componentId);
+                    } else if (selectedPptComponent.type === 'link') {
+                      updatedSlide.links = (activeSlide.links || []).filter(l => l.id !== componentId);
+                    } else if (selectedPptComponent.type === 'memo') {
+                      updatedSlide.memos = (activeSlide.memos || []).filter(m => m.id !== componentId);
+                    } else if (selectedPptComponent.type === 'reference') {
+                      updatedSlide.references = (activeSlide.references || []).filter(r => r.id !== componentId);
+                    }
+
+                    const newSlides = slides.map((s, i) =>
+                      i === activePptSlideIndex ? updatedSlide : s
+                    );
+                    handlePresentationSlidesChange(presentationId, newSlides);
+                    setSelectedPptComponent(null);
+                    setSelectedPptComponentId(null);
+                  };
+
+                  const handleUpdatePptMarker = (markerId: string, updates: any) => {
                     if (!activeSlide) return;
                     const updatedMarkers = slideMarkers.map(m =>
-                      m.id === markerId ? { ...m, ...updates } : m
+                      m.id === markerId ? { ...m, ...updates, label: updates.description || m.label } : m
                     );
                     const updatedSlide = { ...activeSlide, markers: updatedMarkers };
                     const newSlides = slides.map((s, i) =>
@@ -1249,24 +1336,7 @@ export default function Planner() {
                     );
                     handlePresentationSlidesChange(presentationId, newSlides);
                   };
-                  
-                  const handleAddComment = (markerId: string, text: string) => {
-                    if (!activeSlide || !text.trim()) return;
-                    const marker = slideMarkers.find(m => m.id === markerId);
-                    if (!marker) return;
-                    const newComment = {
-                      id: uuidv4(),
-                      userId: 'u1',
-                      userName: 'Alex Designer',
-                      userAvatar: avatar1,
-                      text: text.trim(),
-                      createdAt: new Date().toISOString()
-                    };
-                    handleUpdatePptMarker(markerId, {
-                      comments: [...(marker.comments || []), newComment]
-                    });
-                  };
-                  
+
                   const handleDeletePptMarker = (markerId: string) => {
                     if (!activeSlide) return;
                     const updatedMarkers = slideMarkers.filter(m => m.id !== markerId)
@@ -1280,213 +1350,50 @@ export default function Planner() {
                       setSelectedPptMarkerId(null);
                     }
                   };
-                  
+
+                  const handleAddPptComment = (markerId: string, text: string) => {
+                    if (!activeSlide || !text.trim()) return;
+                    const marker = slideMarkers.find(m => m.id === markerId);
+                    if (!marker) return;
+                    const newComment = {
+                      id: uuidv4(),
+                      userId: 'u1',
+                      userName: 'Current User',
+                      text: text.trim(),
+                      createdAt: new Date().toISOString()
+                    };
+                    handleUpdatePptMarker(markerId, {
+                      comments: [...(marker.comments || []), newComment]
+                    });
+                  };
+
                   return (
-                    <div className="h-full flex flex-col bg-card border-l border-border">
-                      <div className="shrink-0 p-4 border-b border-border space-y-3 bg-muted/10">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <div className="flex items-center gap-2 font-medium text-xs uppercase tracking-wider">
-                            <FileText className="w-3.5 h-3.5" />
-                            Page Specs
-                          </div>
-                          <span className="text-xs">Slide {activePptSlideIndex + 1}</span>
-                        </div>
-                        <Input
-                          value={activeSlide?.title || `Slide ${activePptSlideIndex + 1}`}
-                          onChange={(e) => {
-                            if (!activeSlide) return;
-                            const updatedSlide = { ...activeSlide, title: e.target.value };
-                            const newSlides = slides.map((s, i) =>
-                              i === activePptSlideIndex ? updatedSlide : s
-                            );
-                            handlePresentationSlidesChange(presentationId, newSlides);
-                          }}
-                          className="h-8 font-semibold text-sm bg-background px-2 border-transparent hover:border-input focus:border-input transition-colors"
-                          placeholder="Slide Title"
-                        />
-                      </div>
-                      
-                      <ScrollArea className="flex-1">
-                        <div className="p-4">
-                          {slideMarkers.length > 0 ? (
-                            <>
-                              <div className="flex items-center gap-2 mb-3 text-muted-foreground">
-                                <span className="text-xs font-medium">Annotations ({slideMarkers.length})</span>
-                              </div>
-                              <div className="space-y-4">
-                                {slideMarkers.map((marker) => {
-                                  const statusConfig = STATUS_CONFIG[marker.status || 'pending'];
-                                  return (
-                                    <div
-                                      key={marker.id}
-                                      className={cn(
-                                        "rounded-lg border transition-all",
-                                        selectedPptMarkerId === marker.id
-                                          ? "border-orange-300 bg-orange-50/50 dark:bg-orange-950/20 ring-1 ring-orange-200"
-                                          : "border-border hover:border-muted-foreground/30"
-                                      )}
-                                    >
-                                      <div 
-                                        className="flex items-center gap-3 p-3 cursor-pointer"
-                                        onClick={() => setSelectedPptMarkerId(marker.id)}
-                                      >
-                                        <div className={cn(
-                                          "w-7 h-7 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0",
-                                          selectedPptMarkerId === marker.id ? "bg-orange-500" : "bg-blue-500"
-                                        )}>
-                                          {marker.number}
-                                        </div>
-                                        <span className="text-sm font-medium flex-1">Annotation #{marker.number}</span>
-                                        
-                                        {/* Status Dropdown */}
-                                        <Select
-                                          value={marker.status || 'pending'}
-                                          onValueChange={(value) => handleUpdatePptMarker(marker.id, { status: value as any })}
-                                        >
-                                          <SelectTrigger 
-                                            className={cn("h-7 w-auto gap-1 text-xs border-none", statusConfig.bg, statusConfig.color)}
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="pending">
-                                              <span className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-                                                Pending
-                                              </span>
-                                            </SelectItem>
-                                            <SelectItem value="in_progress">
-                                              <span className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                                                In Progress
-                                              </span>
-                                            </SelectItem>
-                                            <SelectItem value="done">
-                                              <span className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-green-500" />
-                                                Done
-                                              </span>
-                                            </SelectItem>
-                                            <SelectItem value="hold">
-                                              <span className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-orange-500" />
-                                                Hold
-                                              </span>
-                                            </SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        
-                                        {/* History Button */}
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6 text-muted-foreground"
-                                          onClick={(e) => e.stopPropagation()}
-                                          title="History"
-                                        >
-                                          <RotateCcw className="h-3.5 w-3.5" />
-                                        </Button>
-                                        
-                                        {/* Author Avatar */}
-                                        <Avatar className="h-6 w-6">
-                                          <AvatarImage src={marker.authorAvatar || avatar1} />
-                                          <AvatarFallback className="text-[9px]">
-                                            {(marker.authorName || 'A').substring(0, 2)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                      </div>
-                                      
-                                      {/* Content Area */}
-                                      <div className="px-3 pb-3">
-                                        <textarea
-                                          placeholder="Write main requirement..."
-                                          value={marker.label || ''}
-                                          onChange={(e) => {
-                                            handleUpdatePptMarker(marker.id, { label: e.target.value });
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                          }}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedPptMarkerId(marker.id);
-                                          }}
-                                          onFocus={(e) => {
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                          }}
-                                          className="w-full text-sm text-muted-foreground bg-transparent border-none resize-none focus:outline-none placeholder:text-muted-foreground/50 min-h-[40px] overflow-hidden"
-                                          style={{ height: marker.label ? 'auto' : '40px' }}
-                                          ref={(el) => {
-                                            if (el && marker.label) {
-                                              el.style.height = 'auto';
-                                              el.style.height = el.scrollHeight + 'px';
-                                            }
-                                          }}
-                                        />
-                                        
-                                        {/* Comments Section */}
-                                        {(marker.comments?.length || 0) > 0 && (
-                                          <div className="mt-2 pt-2 border-t border-border/50 space-y-2">
-                                            {marker.comments?.map((comment) => (
-                                              <div key={comment.id} className="flex gap-2 text-xs">
-                                                <Avatar className="h-5 w-5 shrink-0">
-                                                  <AvatarImage src={comment.userAvatar} />
-                                                  <AvatarFallback className="text-[8px]">
-                                                    {comment.userName.substring(0, 2)}
-                                                  </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                  <span className="font-medium">{comment.userName}</span>
-                                                  <p className="text-muted-foreground">{comment.text}</p>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                        
-                                        {/* Comment Input */}
-                                        {selectedPptMarkerId === marker.id && (
-                                          <div className="mt-3 flex gap-2">
-                                            <Input
-                                              placeholder="Reply or update status..."
-                                              className="h-8 text-xs flex-1"
-                                              onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && !e.shiftKey) {
-                                                  e.preventDefault();
-                                                  handleAddComment(marker.id, (e.target as HTMLInputElement).value);
-                                                  (e.target as HTMLInputElement).value = '';
-                                                }
-                                              }}
-                                            />
-                                            <Button 
-                                              size="icon" 
-                                              className="h-8 w-8 shrink-0"
-                                              onClick={(e) => {
-                                                const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                                handleAddComment(marker.id, input.value);
-                                                input.value = '';
-                                              }}
-                                            >
-                                              <Send className="h-3.5 w-3.5" />
-                                            </Button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <p className="text-sm">No annotations yet</p>
-                              <p className="text-xs mt-1">Click the # button to add markers</p>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
+                    <SpecPanel
+                      markers={convertedMarkers}
+                      activeMarkerId={selectedPptMarkerId}
+                      pageMetadata={{
+                        title: activeSlide?.title || `Slide ${activePptSlideIndex + 1}`,
+                        description: '',
+                        rfNumber: `Slide ${activePptSlideIndex + 1}`,
+                        date: undefined,
+                      }}
+                      onUpdatePageMetadata={(updates) => {
+                        if (!activeSlide || !updates.title) return;
+                        const updatedSlide = { ...activeSlide, title: updates.title };
+                        const newSlides = slides.map((s, i) =>
+                          i === activePptSlideIndex ? updatedSlide : s
+                        );
+                        handlePresentationSlidesChange(presentationId, newSlides);
+                      }}
+                      onUpdateMarker={handleUpdatePptMarker}
+                      onDeleteMarker={handleDeletePptMarker}
+                      onSelectMarker={setSelectedPptMarkerId}
+                      onAddComment={handleAddPptComment}
+                      contentType="presentation"
+                      selectedComponent={selectedPptComponent}
+                      onUpdateComponent={handleUpdatePptComponent}
+                      onDeleteComponent={handleDeletePptComponent}
+                    />
                   );
                 })()
               ) : (
