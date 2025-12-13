@@ -173,14 +173,6 @@ export function PresentationFlow(props: PresentationFlowProps) {
         onEditMemo,
         onDeleteShape: handleDeleteShape,
         onUpdateShapeColor: handleUpdateShapeColor,
-        isDrawingLine,
-        isDrawingShape,
-        lineStart,
-        shapeStart,
-        currentLineEnd,
-        currentShapeEnd,
-        lineColor,
-        shapeColor,
       } as SlideNodeData,
       draggable: false,
       selectable: false,
@@ -194,14 +186,6 @@ export function PresentationFlow(props: PresentationFlowProps) {
     memoToolActive,
     selectedMarkerId,
     zoom,
-    isDrawingLine,
-    isDrawingShape,
-    lineStart,
-    shapeStart,
-    currentLineEnd,
-    currentShapeEnd,
-    lineColor,
-    shapeColor,
     onEditLink,
     onEditReference,
     onEditMemo,
@@ -322,14 +306,20 @@ export function PresentationFlow(props: PresentationFlowProps) {
     
     if (lineToolActive && !isDrawingLine) {
       event.preventDefault();
-      setLineStart({ x, y });
-      setCurrentLineEnd({ x, y });
-      setIsDrawingLine(true);
+      // requestAnimationFrame을 사용하여 상태 업데이트를 다음 프레임으로 지연하여 깜박임 방지
+      requestAnimationFrame(() => {
+        setLineStart({ x, y });
+        setCurrentLineEnd({ x, y });
+        setIsDrawingLine(true);
+      });
     } else if (shapeToolActive && !isDrawingShape) {
       event.preventDefault();
-      setShapeStart({ x, y });
-      setCurrentShapeEnd({ x, y });
-      setIsDrawingShape(true);
+      // requestAnimationFrame을 사용하여 상태 업데이트를 다음 프레임으로 지연하여 깜박임 방지
+      requestAnimationFrame(() => {
+        setShapeStart({ x, y });
+        setCurrentShapeEnd({ x, y });
+        setIsDrawingShape(true);
+      });
     }
   };
 
@@ -448,7 +438,7 @@ export function PresentationFlow(props: PresentationFlowProps) {
   return (
     <div 
       className={cn((markerToolActive || imageToolActive) && "marker-mode-active")} 
-      style={{ width: '100%', height: '100%' }}
+      style={{ width: '100%', height: '100%', position: 'relative' }}
       onMouseDown={handleNodeMouseDown}
       onMouseUp={handleNodeMouseUp}
     >
@@ -481,6 +471,57 @@ export function PresentationFlow(props: PresentationFlowProps) {
         <Controls showInteractive={false} />
         <MiniMap nodeStrokeWidth={3} zoomable pannable style={{ width: 120, height: 80 }} />
       </ReactFlow>
+      
+      {/* 드래그 중인 라인/네모 미리보기 오버레이 - SlideNode와 분리하여 리렌더링 방지 */}
+      {(isDrawingLine || isDrawingShape) && (
+        <svg
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: 1000,
+          }}
+        >
+          {/* 드래그 중인 라인 미리보기 */}
+          {isDrawingLine && lineStart && currentLineEnd && (
+            <g>
+              <line
+                x1={lineStart.x}
+                y1={lineStart.y}
+                x2={currentLineEnd.x}
+                y2={currentLineEnd.y}
+                stroke={lineColor}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeDasharray="5,5"
+                opacity={0.7}
+              />
+              <circle cx={lineStart.x} cy={lineStart.y} r={4} fill={lineColor} opacity={0.7} />
+              <circle cx={currentLineEnd.x} cy={currentLineEnd.y} r={4} fill={lineColor} opacity={0.7} />
+            </g>
+          )}
+          
+          {/* 드래그 중인 네모 미리보기 */}
+          {isDrawingShape && shapeStart && currentShapeEnd && (
+            <g>
+              <rect
+                x={Math.min(shapeStart.x, currentShapeEnd.x)}
+                y={Math.min(shapeStart.y, currentShapeEnd.y)}
+                width={Math.abs(currentShapeEnd.x - shapeStart.x)}
+                height={Math.abs(currentShapeEnd.y - shapeStart.y)}
+                stroke={shapeColor}
+                strokeWidth={2}
+                fill="none"
+                strokeDasharray="5,5"
+                opacity={0.7}
+              />
+            </g>
+          )}
+        </svg>
+      )}
     </div>
   );
 }
