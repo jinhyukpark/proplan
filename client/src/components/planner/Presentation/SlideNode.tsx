@@ -263,7 +263,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
             const startY = shape.y;
             const endX = shape.x + shape.width;
             const endY = shape.y + shape.height;
-            const isSelected = selectedShapeId === shape.id;
+            const isSelected = selectedShapeId === shape.id || selectedComponentId === shape.id;
 
             // 라인 드래그 이동 핸들러
             const handleLineDragStart = (e: React.MouseEvent) => {
@@ -572,7 +572,7 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           }
 
           // 사각형 렌더링
-          const isSelected = selectedShapeId === shape.id;
+          const isSelected = selectedShapeId === shape.id || selectedComponentId === shape.id;
 
           // 사각형 드래그 이동 핸들러
           const handleRectDragStart = (e: React.MouseEvent) => {
@@ -887,7 +887,9 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
           key={img.id}
           className={cn(
             "absolute group nodrag nopan image-container",
-            activeId === img.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" : "hover:ring-2 hover:ring-blue-300 cursor-grab",
+            activeId === img.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" : 
+            selectedComponentId === img.id ? "ring-2 ring-blue-400" : 
+            "hover:ring-2 hover:ring-blue-300 cursor-grab",
             (markerToolActive || imageToolActive) && "pointer-events-none"
           )}
           style={{
@@ -1036,7 +1038,9 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
             key={link.id}
             className={cn(
               "absolute group nodrag nopan",
-              activeId === link.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" : "hover:ring-2 hover:ring-blue-300 cursor-grab",
+              activeId === link.id ? "z-40 ring-2 ring-blue-500 cursor-grabbing" : 
+              selectedComponentId === link.id ? "ring-2 ring-blue-400" :
+              "hover:ring-2 hover:ring-blue-300 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive) && "pointer-events-none"
             )}
             style={{
@@ -1230,7 +1234,9 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
             key={reference.id}
             className={cn(
               "absolute group nodrag nopan",
-              activeId === reference.id ? "z-40 ring-2 ring-green-500 cursor-grabbing" : "hover:ring-2 hover:ring-green-300 cursor-grab",
+              activeId === reference.id ? "z-40 ring-2 ring-green-500 cursor-grabbing" : 
+              selectedComponentId === reference.id ? "ring-2 ring-green-400" :
+              "hover:ring-2 hover:ring-green-300 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive) && "pointer-events-none"
             )}
             style={{
@@ -1433,7 +1439,9 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
             key={memo.id}
             className={cn(
               "absolute group nodrag nopan",
-              activeId === memo.id ? "z-40 ring-2 cursor-grabbing" : "hover:ring-2 cursor-grab",
+              activeId === memo.id ? "z-40 ring-2 cursor-grabbing" : 
+              selectedComponentId === memo.id ? "ring-2" :
+              "hover:ring-2 cursor-grab",
               (markerToolActive || imageToolActive || linkToolActive || noteToolActive || memoToolActive) && "pointer-events-none"
             )}
             style={{

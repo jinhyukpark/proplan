@@ -279,12 +279,13 @@ export function PresentationFlow(props: PresentationFlowProps) {
         noteToolActive,
         memoToolActive,
         selectedMarkerId,
+        selectedComponentId,
         ...stableCallbacks,
       } as SlideNodeData,
       draggable: false,
       selectable: false,
     }];
-  }, [activeSlide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, stableCallbacks]);
+  }, [activeSlide, markerToolActive, imageToolActive, linkToolActive, noteToolActive, memoToolActive, selectedMarkerId, selectedComponentId, stableCallbacks]);
 
   useEffect(() => {
     setTimeout(() => fitView({ padding: 0.05, duration: 200 }), 100);
