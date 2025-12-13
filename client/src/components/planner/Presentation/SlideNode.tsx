@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2, Move, X, FileText, MoreVertical, Edit, ExternalLink } from "lucide-react";
+import { Trash2, Move, X, FileText, MoreVertical, Edit, ExternalLink, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NodeProps, useViewport } from 'reactflow';
@@ -499,6 +499,11 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
                   stroke={shape.color}
                   strokeWidth={shape.strokeWidth}
                   strokeLinecap="round"
+                  strokeDasharray={
+                    shape.lineType === 'dashed' ? '10,5' :
+                    shape.lineType === 'dotted' ? '2,4' :
+                    'none'
+                  }
                   className="pointer-events-none"
                 />
                 {/* 시작점 핸들 */}
@@ -1552,43 +1557,63 @@ export const SlideNode = React.memo(({ data }: NodeProps<SlideNodeData>) => {
               <div>
                 <label className="text-xs text-neutral-600 mb-2 block">라인 색상</label>
                 <div className="flex gap-2 flex-wrap">
-                  {['#000000', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'].map((color) => (
-                    <button
-                      key={color}
-                      className="w-8 h-8 rounded border-2 border-neutral-200 hover:border-neutral-400"
-                      style={{ backgroundColor: color }}
-                      onClick={() => {
-                        const shape = slide.shapes?.find(s => s.id === selectedShapeId);
-                        if (shape && data.onUpdateShapeColor) {
-                          data.onUpdateShapeColor(selectedShapeId, color, shape.fillColor, shape.fillOpacity);
-                        }
-                      }}
-                    />
-                  ))}
+                  {['#000000', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'].map((color) => {
+                    const shape = slide.shapes?.find(s => s.id === selectedShapeId);
+                    const isSelected = shape?.color === color;
+                    return (
+                      <button
+                        key={color}
+                        className={cn(
+                          "w-8 h-8 rounded border-2 hover:border-neutral-400 relative",
+                          isSelected ? "border-neutral-900 ring-2 ring-neutral-900" : "border-neutral-200"
+                        )}
+                        style={{ backgroundColor: color }}
+                        onClick={() => {
+                          if (shape && data.onUpdateShapeColor) {
+                            data.onUpdateShapeColor(selectedShapeId, color, shape.fillColor, shape.fillOpacity);
+                          }
+                        }}
+                      >
+                        {isSelected && (
+                          <Check className="absolute inset-0 m-auto h-4 w-4 text-white" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div>
                 <label className="text-xs text-neutral-600 mb-2 block">내부 색상</label>
                 <div className="flex gap-2 flex-wrap">
-                  {['transparent', '#000000', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'].map((color) => (
-                    <button
-                      key={color}
-                      className="w-8 h-8 rounded border-2 border-neutral-200 hover:border-neutral-400 relative"
-                      style={{ backgroundColor: color === 'transparent' ? '#ffffff' : color }}
-                      onClick={() => {
-                        const shape = slide.shapes?.find(s => s.id === selectedShapeId);
-                        if (shape && data.onUpdateShapeColor) {
-                          data.onUpdateShapeColor(selectedShapeId, shape.color, color === 'transparent' ? 'none' : color, color === 'transparent' ? 0 : 0.3);
-                        }
-                      }}
-                    >
-                      {color === 'transparent' && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-6 h-0.5 bg-red-500 rotate-45" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                  {['transparent', '#000000', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'].map((color) => {
+                    const shape = slide.shapes?.find(s => s.id === selectedShapeId);
+                    const isSelected = color === 'transparent' 
+                      ? (shape?.fillColor === 'none' || shape?.fillOpacity === 0)
+                      : shape?.fillColor === color;
+                    return (
+                      <button
+                        key={color}
+                        className={cn(
+                          "w-8 h-8 rounded border-2 hover:border-neutral-400 relative",
+                          isSelected ? "border-neutral-900 ring-2 ring-neutral-900" : "border-neutral-200"
+                        )}
+                        style={{ backgroundColor: color === 'transparent' ? '#ffffff' : color }}
+                        onClick={() => {
+                          if (shape && data.onUpdateShapeColor) {
+                            data.onUpdateShapeColor(selectedShapeId, shape.color, color === 'transparent' ? 'none' : color, color === 'transparent' ? 0 : 0.3);
+                          }
+                        }}
+                      >
+                        {color === 'transparent' ? (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-6 h-0.5 bg-red-500 rotate-45" />
+                          </div>
+                        ) : isSelected && (
+                          <Check className="absolute inset-0 m-auto h-4 w-4 text-white" style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))' }} />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <Button size="sm" variant="outline" className="w-full" onClick={() => setShapePopoverOpen(false)}>닫기</Button>

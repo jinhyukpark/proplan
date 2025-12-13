@@ -82,6 +82,8 @@ export interface SlideRecording {
   y: number;
 }
 
+export type LineType = 'solid' | 'dashed' | 'dotted';
+
 export interface SlideShape {
   id: string;
   type: 'rectangle' | 'circle' | 'line';
@@ -93,6 +95,7 @@ export interface SlideShape {
   strokeWidth: number;
   fillColor: string;
   fillOpacity: number;
+  lineType?: LineType; // 라인 스타일 (line type에만 적용)
   fromComponentId?: string; // 연결된 시작 컴포넌트 ID
   fromComponentType?: 'image' | 'link' | 'reference' | 'memo' | 'marker'; // 시작 컴포넌트 타입
   toComponentId?: string; // 연결된 끝 컴포넌트 ID

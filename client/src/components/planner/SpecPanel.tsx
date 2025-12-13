@@ -37,7 +37,7 @@ export interface ImageMetadata {
 
 export type SelectedComponent = 
   | { type: 'image'; id: string; x: number; y: number; width: number; height: number; url: string }
-  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number }
+  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; lineType: 'solid' | 'dashed' | 'dotted' }
   | { type: 'shape'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; fillColor: string; fillOpacity: number }
   | { type: 'link'; id: string; x: number; y: number; width: number; height: number; url: string; label: string }
   | { type: 'memo'; id: string; x: number; y: number; width: number; height: number; title: string; content: string; style: string }
@@ -834,12 +834,49 @@ function ComponentSettings({ component, onUpdate, onDelete }: ComponentSettingsP
             <div className="space-y-2">
               <div className="space-y-1">
                 <UILabel className="text-xs text-muted-foreground">Color</UILabel>
-                <Input
-                  type="color"
-                  value={component.color}
-                  onChange={(e) => handleChange('color', e.target.value)}
-                  className="h-8"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={component.color}
+                    onChange={(e) => handleChange('color', e.target.value)}
+                    className="h-8 w-16"
+                  />
+                  <Input
+                    type="text"
+                    value={component.color}
+                    onChange={(e) => handleChange('color', e.target.value)}
+                    className="h-8 text-xs flex-1 font-mono"
+                    placeholder="#3b82f6"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <UILabel className="text-xs text-muted-foreground">Line Type</UILabel>
+                <Select value={component.lineType} onValueChange={(val) => handleChange('lineType', val)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="solid">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-0.5 bg-current" />
+                        Solid
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="dashed">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-0.5 bg-current" style={{ backgroundImage: 'repeating-linear-gradient(to right, currentColor 0, currentColor 4px, transparent 4px, transparent 8px)' }} />
+                        Dashed
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="dotted">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-0.5 bg-current" style={{ backgroundImage: 'repeating-linear-gradient(to right, currentColor 0, currentColor 2px, transparent 2px, transparent 4px)' }} />
+                        Dotted
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <UILabel className="text-xs text-muted-foreground">Stroke Width</UILabel>

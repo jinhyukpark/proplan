@@ -15,7 +15,7 @@ import { Slide, SlideSection, SlideImage, SlideMarker, SlideLink, SlideReference
 
 export type SelectedComponent = 
   | { type: 'image'; id: string; x: number; y: number; width: number; height: number; url: string }
-  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number }
+  | { type: 'line'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; lineType: 'solid' | 'dashed' | 'dotted' }
   | { type: 'shape'; id: string; x: number; y: number; width: number; height: number; color: string; strokeWidth: number; fillColor: string; fillOpacity: number }
   | { type: 'link'; id: string; x: number; y: number; width: number; height: number; url: string; label: string }
   | { type: 'memo'; id: string; x: number; y: number; width: number; height: number; title: string; content: string; style: string }
@@ -205,6 +205,7 @@ export function PresentationCanvas({
       strokeWidth: 3,
       fillColor: 'none',
       fillOpacity: 0,
+      lineType: 'solid',
     };
     const updatedSlide = { ...activeSlide, shapes: [...(activeSlide.shapes || []), newLine] };
     onSlidesChange(slides.map((s, i) => i === activeSlideIndex ? updatedSlide : s));
@@ -346,7 +347,8 @@ export function PresentationCanvas({
             width: shape.width, 
             height: shape.height, 
             color: shape.color, 
-            strokeWidth: shape.strokeWidth 
+            strokeWidth: shape.strokeWidth,
+            lineType: shape.lineType || 'solid'
           };
         } else {
           component = { 
